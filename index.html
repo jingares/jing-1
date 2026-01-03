@@ -4,32 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>濟豬&濟淨的兩人生活</title>
+    
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #1e293b; }
         .glass-card { background: #ffffff; border: 2px solid #e2e8f0; box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.05); border-radius: 1.5rem; }
-        @keyframes starBlink { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(1.2); } }
+        
+        /* 像素星星動畫 */
+        @keyframes starBlink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(1.2); }
+        }
         .pixel-star { display: inline-block; animation: starBlink 2s infinite; color: #fbbf24; }
+
+        /* Payer 選取器美化 */
         .payer-option { display: none; }
-        .payer-label { display: flex; align-items: center; justify-content: center; padding: 12px 8px; border-radius: 12px; font-weight: 700; font-size: 14px; background: #f1f5f9; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
-        .payer-option:checked + .payer-label { background: #1e293b; color: white; transform: translateY(-2px); }
+        .payer-label { 
+            display: flex; align-items: center; justify-content: center; 
+            padding: 12px 8px; border-radius: 12px; font-weight: 700; font-size: 14px; 
+            background: #f1f5f9; cursor: pointer; border: 2px solid transparent; transition: 0.2s; 
+        }
+        .payer-option:checked + .payer-label { background: #1e293b; color: #fff; transform: translateY(-2px); }
+
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+
+        /* 標籤配色優化 */
         .tag-pig { color: #c2410c; background: #fff7ed; border-radius: 6px; padding: 2px 8px; font-weight: 700; }
         .tag-clean { color: #0369a1; background: #f0f9ff; border-radius: 6px; padding: 2px 8px; font-weight: 700; }
-        .tag-settled { color: #64748b; background: #f1f5f9; text-decoration: line-through; opacity: 0.6; }
+        .tag-settled { color: #64748b; background: #f1f5f9; text-decoration: line-through; opacity: 0.5; }
     </style>
 
     <script>
-        var submitted = false;
+        let submitted = false;
         const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?output=csv';
-        let expenseChart;
+        let expenseChart = null;
 
-        // 註冊 DataLabels 外掛
+        // 註冊外掛
         Chart.register(ChartDataLabels);
 
         window.handleIframeLoad = function() {
@@ -41,34 +57,29 @@
 
         async function fetchData() {
             try {
-                const response = await fetch(`${csvUrl}&t=${Date.now()}`);
-                const data = await response.text();
-                const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
+                const res = await fetch(`${csvUrl}&t=${Date.now()}`);
+                const text = await res.text();
+                const rows = text.split('\n').filter(r => r.trim() !== "").slice(1);
                 
-                let income = 15000; 
-                let totalExpense = 0; 
-                let walletPaid = 0; 
-                let settledReimbursements = 0; 
-                let pigOwed = 0; 
-                let cleanOwed = 0; 
+                let income = 15000, totalExpense = 0, walletPaidDirectly = 0, settledReimbursements = 0;
+                let pigOwed = 0, cleanOwed = 0;
                 let categoryData = {};
                 let recentHtml = "";
 
-                rows.forEach(r => {
-                    const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
+                rows.forEach(row => {
+                    const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
                     const amt = parseFloat(c[1]) || 0;
-                    const payer = c[3];
-                    const cat = c[2];
-                    const isSettled = c[5] === "是";
+                    const cat = c[2], payer = c[3], isSettled = (c[5] === "是");
 
                     if (cat === "收入" || amt < 0) {
                         income += Math.abs(amt);
                     } else {
                         totalExpense += amt;
                         categoryData[cat] = (categoryData[cat] || 0) + amt;
-                        if (payer === "共同錢包") { walletPaid += amt; } 
-                        else {
-                            if (isSettled) { settledReimbursements += amt; } 
+                        if (payer === "共同錢包") {
+                            walletPaidDirectly += amt;
+                        } else {
+                            if (isSettled) settledReimbursements += amt;
                             else {
                                 if (payer === "濟豬") pigOwed += amt;
                                 if (payer === "濟淨") cleanOwed += amt;
@@ -77,61 +88,175 @@
                     }
                 });
 
-                const currentBalance = income - walletPaid - settledReimbursements;
+                const currentBalance = income - walletPaidDirectly - settledReimbursements;
                 document.getElementById('wallet-balance').innerText = currentBalance.toLocaleString();
-                document.getElementById('pig-reimbursement').innerText = '$' + pigOwed.toLocaleString();
-                document.getElementById('clean-reimbursement').innerText = '$' + cleanOwed.toLocaleString();
+                document.getElementById('pig-owed').innerText = '$' + pigOwed.toLocaleString();
+                document.getElementById('clean-owed').innerText = '$' + cleanOwed.toLocaleString();
 
                 [...rows].reverse().slice(0, 5).forEach(row => {
-                    const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/"/g, ""));
-                    const amt = parseFloat(cols[1]) || 0;
-                    const isSettled = cols[5] === "是";
-                    if (cols[2] === "收入") return;
+                    const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
+                    const isSettled = (c[5] === "是");
+                    if (c[2] === "收入") return;
 
                     recentHtml += `
                         <div class="flex justify-between items-center py-4 border-b border-slate-100 last:border-0 ${isSettled ? 'opacity-40' : ''}">
                             <div>
-                                <div class="font-bold text-slate-800 text-sm">${cols[2]} ${isSettled ? '✅' : ''}</div>
-                                <div class="text-[11px] text-slate-500 font-medium">${cols[4]}</div>
+                                <div class="font-bold text-slate-800 text-sm">${c[2]} ${isSettled ? '✅' : ''}</div>
+                                <div class="text-[11px] text-slate-400 font-bold">${c[4]}</div>
                             </div>
                             <div class="text-right">
-                                <div class="font-black text-slate-900 text-lg">$${amt.toLocaleString()}</div>
-                                <span class="text-[10px] ${isSettled ? 'tag-settled' : (cols[3]==='濟豬'?'tag-pig':'tag-clean')}">${cols[3]}</span>
+                                <div class="font-black text-slate-900 text-lg">$${parseFloat(c[1]).toLocaleString()}</div>
+                                <span class="text-[10px] ${isSettled ? 'tag-settled' : (c[3]==='濟豬'?'tag-pig':'tag-clean')}">${c[3]}</span>
                             </div>
                         </div>`;
                 });
-                document.getElementById('recent-list').innerHTML = recentHtml || "尚未有紀錄";
-
+                document.getElementById('recent-list').innerHTML = recentHtml || "尚未有數據";
                 renderChart(categoryData, totalExpense);
-            } catch (e) { console.error(e); }
+            } catch (err) { console.error("Data Load Error:", err); }
         }
 
         function renderChart(catData, grandTotal) {
-            const ctx = document.getElementById('expenseChart');
+            const ctx = document.getElementById('expenseChart').getContext('2d');
             if (expenseChart) expenseChart.destroy();
-            
+
             expenseChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(catData).map(k => `${k} (${((catData[k]/grandTotal)*100).toFixed(0)}%)`),
                     datasets: [{
                         data: Object.values(catData),
-                        backgroundColor: ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6', '#cbd5e1'],
+                        backgroundColor: ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6', '#94a3b8'],
                         borderWidth: 2,
                         borderColor: '#ffffff'
                     }]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '70%',
+                    responsive: true, maintainAspectRatio: false, cutout: '72%',
                     plugins: {
                         legend: { position: 'bottom', labels: { padding: 15, usePointStyle: true, font: { size: 12, weight: '700' } } },
                         datalabels: {
                             color: '#fff',
-                            font: { weight: 'bold', size: 11 },
-                            formatter: (value) => value > 0 ? `$${value.toLocaleString()}` : '', // 直接在圓餅上顯示金額
+                            backgroundColor: 'rgba(0,0,0,0.2)',
+                            borderRadius: 4,
+                            padding: 4,
+                            font: { weight: 'bold', size: 10 },
+                            formatter: (val) => val > (grandTotal * 0.05) ? `$${val.toLocaleString()}` : '', // 佔比太小不顯示避免擠壓
                             display: 'auto'
                         }
                     }
                 },
                 plugins: [{
                     beforeDraw: (chart) => {
+                        const { width, height, ctx } = chart;
+                        ctx.restore();
+                        ctx.font = "700 13px Noto Sans TC";
+                        ctx.fillStyle = "#94a3b8";
+                        ctx.textAlign = "center";
+                        ctx.fillText("總支出", width / 2, height / 2 - 12);
+                        ctx.font = "900 22px Noto Sans TC";
+                        ctx.fillStyle = "#1e293b";
+                        ctx.fillText(`$${grandTotal.toLocaleString()}`, width / 2, height / 2 + 15);
+                        ctx.save();
+                    }
+                }]
+            });
+        }
+
+        function openTab(t) {
+            document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('text-slate-900', 'bg-white', 'shadow-sm'));
+            document.getElementById(t).classList.add('active');
+            document.getElementById('btn-' + t).classList.add('text-slate-900', 'bg-white', 'shadow-sm');
+        }
+        window.onload = fetchData;
+    </script>
+</head>
+<body class="pb-12 px-4">
+
+    <header class="max-w-md mx-auto pt-8 pb-6">
+        <div class="flex justify-between items-end mb-4">
+            <h1 class="text-2xl font-black tracking-tight text-slate-800">
+                🐷 濟豬 & 濟淨的兩人生活 <span class="pixel-star">★</span>
+            </h1>
+        </div>
+        <nav class="flex bg-slate-200/50 p-1 rounded-2xl gap-1">
+            <button onclick="openTab('money')" id="btn-money" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl text-slate-900 bg-white shadow-sm">金錢</button>
+            <button onclick="openTab('mission')" id="btn-mission" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl text-slate-500">任務</button>
+            <button onclick="openTab('body')" id="btn-body" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl text-slate-500">體魄</button>
+        </nav>
+    </header>
+
+    <main class="max-w-md mx-auto space-y-6">
+        <section id="money" class="tab-content active space-y-6">
+            
+            <div class="glass-card p-8 bg-slate-900 text-white border-0 shadow-2xl">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h2 class="text-[11px] font-black text-slate-400 uppercase tracking-widest">目前共同錢包水位</h2>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span class="text-2xl font-black text-slate-500">$</span>
+                    <span id="wallet-balance" class="text-6xl font-black tracking-tighter text-white">...</span>
+                </div>
+                <div class="mt-8 space-y-3 border-t border-slate-800 pt-5">
+                    <div class="flex justify-between items-center font-bold">
+                        <span class="text-[11px] text-slate-500">待撥款給 濟豬</span>
+                        <span id="pig-owed" class="text-orange-400 text-lg">...</span>
+                    </div>
+                    <div class="flex justify-between items-center font-bold">
+                        <span class="text-[11px] text-slate-500">待撥款給 濟淨</span>
+                        <span id="clean-owed" class="text-sky-400 text-lg">...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-6">
+                <h3 class="text-xs font-black text-slate-400 mb-6 tracking-widest uppercase">📊 支出比例分析 (含金額)</h3>
+                <div class="h-72"><canvas id="expenseChart"></canvas></div>
+            </div>
+
+            <div class="glass-card p-8">
+                <h3 class="text-sm font-black text-slate-700 mb-4 tracking-widest uppercase">📜 最近 5 筆冒險紀錄</h3>
+                <div id="recent-list" class="space-y-1">載入中...</div>
+            </div>
+
+            <div class="glass-card p-8">
+                <h3 class="text-sm font-black text-slate-700 mb-6">✍️ 紀錄新開銷</h3>
+                <form action="https://docs.google.com/forms/u/1/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" 
+                      method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="date" name="entry.2029544290" class="bg-slate-100 border-0 p-3 rounded-xl font-bold text-sm outline-none" required>
+                            <select name="entry.1539739800" class="bg-slate-100 border-0 p-3 rounded-xl font-bold text-sm outline-none">
+                                <option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option>
+                                <option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option>
+                                <option value="社交">🥂 社交</option><option value="收入">🧧 收入</option>
+                            </select>
+                        </div>
+                        <input type="number" name="entry.1782400014" placeholder="輸入金額" class="w-full bg-slate-100 border-0 p-4 rounded-xl font-black text-2xl outline-none" required>
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 mb-2 block tracking-widest uppercase">Payer / 付款人</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <input type="radio" name="entry.1122156127" value="濟豬" id="p1" class="payer-option" required>
+                                <label for="p1" class="payer-label">濟豬墊</label>
+                                <input type="radio" name="entry.1122156127" value="濟淨" id="p2" class="payer-option">
+                                <label for="p2" class="payer-label">濟淨墊</label>
+                                <input type="radio" name="entry.1122156127" value="共同錢包" id="p3" class="payer-option">
+                                <label for="p3" class="payer-label">公錢包</label>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-xs tracking-[0.2em]">
+                            卍o爻 啟動傳送 爻o卍
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section id="mission" class="tab-content py-20 text-center font-bold text-slate-300">🌫️ 任務系統載入中...</section>
+        <section id="body" class="tab-content py-20 text-center font-bold text-slate-300">⚔️ 體魄系統載入中...</section>
+    </main>
+
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="handleIframeLoad()"></iframe>
+</body>
+</html>
