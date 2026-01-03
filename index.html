@@ -10,45 +10,16 @@
     
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #1e293b; }
-        
-        /* 精緻像素陰影 */
-        .glass-card {
-            background: #ffffff;
-            border: 2px solid #e2e8f0;
-            box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.05);
-            border-radius: 1.5rem;
-            transition: all 0.2s ease;
-        }
-
-        /* 像素星星閃爍動畫 */
-        @keyframes starBlink {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.3; transform: scale(0.8); }
-        }
-        .pixel-star {
-            display: inline-block;
-            animation: starBlink 1.5s infinite;
-            color: #fbbf24;
-        }
-
-        /* 改進的選取器 UX */
+        .glass-card { background: #ffffff; border: 2px solid #e2e8f0; box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.05); border-radius: 1.5rem; transition: all 0.2s ease; }
         .payer-option { display: none; }
-        .payer-label {
-            display: flex; align-items: center; justify-content: center;
-            padding: 12px 8px; border-radius: 12px; font-weight: 700; font-size: 13px;
-            background: #f1f5f9; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
-        }
-        .payer-option:checked + .payer-label {
-            background: #1e293b; color: white; border-color: #1e293b; transform: translateY(-2px);
-        }
-
+        .payer-label { display: flex; align-items: center; justify-content: center; padding: 12px 8px; border-radius: 12px; font-weight: 700; font-size: 13px; background: #f1f5f9; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
+        .payer-option:checked + .payer-label { background: #1e293b; color: white; border-color: #1e293b; transform: translateY(-2px); }
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
         @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        /* 標籤配色 */
         .tag-pig { color: #f97316; background: #fff7ed; border-radius: 6px; padding: 2px 8px; }
         .tag-clean { color: #0ea5e9; background: #f0f9ff; border-radius: 6px; padding: 2px 8px; }
+        .tag-settled { color: #94a3b8; background: #f1f5f9; text-decoration: line-through; }
     </style>
 
     <script>
@@ -69,81 +40,90 @@
                 const data = await response.text();
                 const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
                 
-                let totalSpent = 0, pigPaid = 0, cleanPaid = 0;
+                let income = 15000; // 每月固定收入
+                let totalExpense = 0; // 總支出(含未結)
+                let walletPaid = 0; // 從共同錢包出的錢
+                let settledReimbursements = 0; // 已結清的代墊款
+                let pigOwed = 0; // 應撥給濟豬
+                let cleanOwed = 0; // 應撥給濟淨
                 let categoryData = {};
                 let recentHtml = "";
 
                 rows.forEach(r => {
                     const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
                     const amt = parseFloat(c[1]) || 0;
-                    totalSpent += amt;
-                    if (c[5] !== "是") {
-                        if (c[3] === "濟豬") pigPaid += amt;
-                        if (c[3] === "濟淨") cleanPaid += amt;
+                    const payer = c[3];
+                    const cat = c[2];
+                    const isSettled = c[5] === "是";
+
+                    // 處理中獎收入 (金額若為負值代表收入，或類別是中獎)
+                    if (cat === "收入" || amt < 0) {
+                        income += Math.abs(amt);
+                    } else {
+                        totalExpense += amt;
+                        categoryData[cat] = (categoryData[cat] || 0) + amt;
+
+                        if (payer === "共同錢包") {
+                            walletPaid += amt;
+                        } else {
+                            if (isSettled) {
+                                settledReimbursements += amt;
+                            } else {
+                                if (payer === "濟豬") pigOwed += amt;
+                                if (payer === "濟淨") cleanOwed += amt;
+                            }
+                        }
                     }
-                    categoryData[c[2]] = (categoryData[c[2]] || 0) + amt;
                 });
 
-                [...rows].reverse().slice(0, 5).forEach(row => {
+                // 目前餘額 = 總收入 - 共同錢包支付 - 已撥回給代墊人的錢
+                const currentBalance = income - walletPaid - settledReimbursements;
+
+                [...rows].reverse().slice(0, 6).forEach(row => {
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/"/g, ""));
                     const amt = parseFloat(cols[1]) || 0;
-                    const isPig = cols[3] === "濟豬";
+                    const isSettled = cols[5] === "是";
+                    if (cols[2] === "收入") return;
+
                     recentHtml += `
-                        <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-0">
+                        <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-0 ${isSettled ? 'opacity-50' : ''}">
                             <div>
-                                <div class="font-bold text-slate-700 text-sm">${cols[2]}</div>
+                                <div class="font-bold text-slate-700 text-sm">${cols[2]} ${isSettled ? '✅' : ''}</div>
                                 <div class="text-[11px] text-slate-400">${cols[4]}</div>
                             </div>
                             <div class="text-right">
                                 <div class="font-black text-slate-800">$${amt.toLocaleString()}</div>
-                                <span class="text-[10px] font-bold ${isPig?'tag-pig':'tag-clean'}">${cols[3]}</span>
+                                <span class="text-[10px] font-bold ${isSettled ? 'tag-settled' : (cols[3]==='濟豬'?'tag-pig':'tag-clean')}">${cols[3]}</span>
                             </div>
                         </div>`;
                 });
 
-                document.getElementById('wallet-balance').innerText = (15000 - totalSpent).toLocaleString();
-                document.getElementById('pig-reimbursement').innerText = '$' + pigPaid.toLocaleString();
-                document.getElementById('clean-reimbursement').innerText = '$' + cleanPaid.toLocaleString();
+                document.getElementById('wallet-balance').innerText = currentBalance.toLocaleString();
+                document.getElementById('pig-reimbursement').innerText = '$' + pigOwed.toLocaleString();
+                document.getElementById('clean-reimbursement').innerText = '$' + cleanOwed.toLocaleString();
                 document.getElementById('recent-list').innerHTML = recentHtml || "尚未有傳說紀錄";
 
-                renderChart(categoryData, totalSpent);
+                renderChart(categoryData, totalExpense);
             } catch (e) { console.error(e); }
         }
 
         function renderChart(catData, grandTotal) {
             const ctx = document.getElementById('expenseChart');
             if (expenseChart) expenseChart.destroy();
-            const colors = ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6', '#cbd5e1'];
-            
             expenseChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(catData).map(k => `${k} (${((catData[k]/grandTotal)*100).toFixed(0)}%)`),
                     datasets: [{
                         data: Object.values(catData),
-                        backgroundColor: colors,
-                        hoverOffset: 20,
+                        backgroundColor: ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6', '#cbd5e1'],
                         borderWidth: 0
                     }]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false, cutout: '75%',
                     plugins: { legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, font: { size: 12, weight: '700' } } } }
-                },
-                plugins: [{
-                    beforeDraw: (chart) => {
-                        const { width, height, ctx } = chart;
-                        ctx.restore();
-                        ctx.font = "700 14px Noto Sans TC";
-                        ctx.fillStyle = "#94a3b8";
-                        ctx.textAlign = "center";
-                        ctx.fillText("總支出", width / 2, height / 2 - 10);
-                        ctx.font = "900 22px Noto Sans TC";
-                        ctx.fillStyle = "#1e293b";
-                        ctx.fillText(`$${grandTotal.toLocaleString()}`, width / 2, height / 2 + 15);
-                        ctx.save();
-                    }
-                }]
+                }
             });
         }
 
@@ -162,108 +142,88 @@
     <header class="max-w-md mx-auto pt-8 pb-6">
         <div class="flex justify-between items-end mb-4">
             <div>
-                <h1 class="text-2xl font-black tracking-tight text-slate-800">濟豬 & 濟淨的觀測站 <span class="pixel-star">★</span></h1>
-                <p class="text-xs font-bold text-slate-400 mt-1 italic">一起開啟冒險吧</p>
+                <h1 class="text-2xl font-black tracking-tight text-slate-800">金錢觀測站</h1>
+                <p class="text-xs font-bold text-slate-400 mt-1 italic italic">Finance Control Room</p>
             </div>
-            <div class="text-[24px]">🐷🐣</div>
+            <div class="text-[24px]">🧧</div>
         </div>
-        
         <nav class="flex bg-slate-200/50 p-1 rounded-2xl gap-1">
-            <button onclick="openTab('money')" id="btn-money" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all text-slate-900 bg-white shadow-sm">金錢</button>
-            <button onclick="openTab('mission')" id="btn-mission" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all text-slate-500">任務</button>
-            <button onclick="openTab('body')" id="btn-body" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all text-slate-500">體魄</button>
+            <button onclick="openTab('money')" id="btn-money" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl text-slate-900 bg-white shadow-sm">金錢</button>
+            <button onclick="openTab('mission')" id="btn-mission" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl text-slate-500">任務</button>
+            <button onclick="openTab('body')" id="btn-body" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl text-slate-500">體魄</button>
         </nav>
     </header>
 
     <main class="max-w-md mx-auto space-y-6">
         <section id="money" class="tab-content active space-y-6">
             
-            <div class="glass-card p-8 bg-gradient-to-br from-white to-slate-50">
+            <div class="glass-card p-8 bg-slate-900 text-white border-0">
                 <div class="flex items-center gap-2 mb-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <h2 class="text-sm font-black text-slate-400 uppercase tracking-widest">共同錢包餘額</h2>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest">目前共同錢包實質水位</h2>
                 </div>
                 <div class="flex items-baseline gap-1">
-                    <span class="text-2xl font-black text-slate-400">$</span>
-                    <span id="wallet-balance" class="text-6xl font-black tracking-tighter text-slate-800">...</span>
+                    <span class="text-2xl font-black text-slate-500">$</span>
+                    <span id="wallet-balance" class="text-6xl font-black tracking-tighter">...</span>
                 </div>
-            </div>
-
-            <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-6 flex items-center gap-2">
-                    📊 支出構成比例
-                </h3>
-                <div class="h-64"><canvas id="expenseChart"></canvas></div>
+                <p class="text-[10px] mt-4 text-slate-500 leading-relaxed">
+                    * 計算公式：15,000 + 中獎收入 - 共同錢包已支 - 已結清代墊款。<br>
+                    * 尚未結清的代墊款暫不扣除水位。
+                </p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div class="glass-card p-5 border-t-4 border-t-orange-400">
-                    <p class="text-[11px] font-bold text-slate-400 mb-1">應撥給 / 濟豬</p>
+                    <p class="text-[10px] font-black text-slate-400 mb-1">待撥款給 / 濟豬</p>
                     <p id="pig-reimbursement" class="text-xl font-black text-slate-800">$0</p>
                 </div>
                 <div class="glass-card p-5 border-t-4 border-t-sky-400">
-                    <p class="text-[11px] font-bold text-slate-400 mb-1">應撥給 / 濟淨</p>
+                    <p class="text-[10px] font-black text-slate-400 mb-1">待撥款給 / 濟淨</p>
                     <p id="clean-reimbursement" class="text-xl font-black text-slate-800">$0</p>
                 </div>
             </div>
 
+            <div class="glass-card p-8"><div class="h-64"><canvas id="expenseChart"></canvas></div></div>
+
             <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-4">📜 最近 5 筆冒險紀錄</h3>
+                <h3 class="text-sm font-black text-slate-700 mb-4 tracking-widest">📜 近期流水帳與結清狀態</h3>
                 <div id="recent-list" class="space-y-1">讀取中...</div>
+                <div class="mt-4 pt-4 border-t border-slate-100 text-[10px] text-slate-400">
+                    💡 若已從錢包撥款給代墊人，請在試算表 F 欄打上「是」
+                </div>
             </div>
 
             <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-6">✍️ 新增生活開銷</h3>
+                <h3 class="text-sm font-black text-slate-700 mb-6">✍️ 紀錄新冒險</h3>
                 <form action="https://docs.google.com/forms/u/1/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" 
                       method="POST" target="hidden_iframe" onsubmit="submitted=true;">
-                    
                     <div class="space-y-6">
                         <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 mb-1 block">日期</label>
-                                <input type="date" name="entry.2029544290" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm focus:ring-2 focus:ring-slate-300 outline-none" required>
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 mb-1 block">類別</label>
-                                <select name="entry.1539739800" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
-                                    <option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option>
-                                    <option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option>
-                                    <option value="社交">🥂 社交</option>
-                                </select>
-                            </div>
+                            <input type="date" name="entry.2029544290" class="bg-slate-100 border-0 p-3 rounded-xl font-bold text-sm outline-none" required>
+                            <select name="entry.1539739800" class="bg-slate-100 border-0 p-3 rounded-xl font-bold text-sm outline-none">
+                                <option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option>
+                                <option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option>
+                                <option value="社交">🥂 社交</option><option value="收入">🧧 中獎/收入</option>
+                            </select>
                         </div>
-
+                        <input type="number" name="entry.1782400014" placeholder="輸入金額" class="w-full bg-slate-100 border-0 p-4 rounded-xl font-black text-xl outline-none" required>
                         <div>
-                            <label class="text-[10px] font-black text-slate-400 mb-1 block">金額</label>
-                            <input type="number" name="entry.1782400014" placeholder="0" class="w-full bg-slate-100/50 border-0 p-4 rounded-xl font-black text-xl outline-none" required>
-                        </div>
-
-                        <div>
-                            <label class="text-[10px] font-black text-slate-400 mb-2 block">付款人</label>
+                            <label class="text-[10px] font-black text-slate-400 mb-2 block tracking-widest">誰付的錢？ / PAYER</label>
                             <div class="grid grid-cols-3 gap-2">
                                 <input type="radio" name="entry.1122156127" value="濟豬" id="p1" class="payer-option" required>
-                                <label for="p1" class="payer-label">濟豬</label>
+                                <label for="p1" class="payer-label">濟豬墊</label>
                                 <input type="radio" name="entry.1122156127" value="濟淨" id="p2" class="payer-option">
-                                <label for="p2" class="payer-label">濟淨</label>
+                                <label for="p2" class="payer-label">濟淨墊</label>
                                 <input type="radio" name="entry.1122156127" value="共同錢包" id="p3" class="payer-option">
-                                <label for="p3" class="payer-label">共同</label>
+                                <label for="p3" class="payer-label">公錢包</label>
                             </div>
                         </div>
-
-                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-sm tracking-widest">
+                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-xs tracking-[0.2em]">
                             卍o爻 啟動傳送 爻o卍
                         </button>
                     </div>
                 </form>
             </div>
-        </section>
-
-        <section id="mission" class="tab-content py-20 text-center font-bold text-slate-300">
-            <span class="text-4xl">🌫️</span><br>迷霧壟罩，暫時無法進入
-        </section>
-
-        <section id="body" class="tab-content py-20 text-center font-bold text-slate-300">
-            <span class="text-4xl">⚔️</span><br>體魄數據由大魔法師維護中
         </section>
     </main>
 
