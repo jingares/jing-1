@@ -103,11 +103,11 @@
         </section>
     </main>
 
-   <script>
+  <script>
         var submitted = false;
         const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?output=csv';
 
-        // 必須寫在最前面，讓 iframe 呼叫
+        // 強制將功能掛載到 window，解決 iframe 找不到指令的問題
         window.handleIframeLoad = function() {
             if (submitted) {
                 alert('✨ 紀錄成功！資料已飛向雲端 ✨');
@@ -168,12 +168,10 @@
                 console.log("計算完成，畫面已更新");
             } catch (e) {
                 console.error("資料讀取發生錯誤:", e);
-                if(document.getElementById('wallet-balance')) {
-                    document.getElementById('wallet-balance').innerText = "連線失敗";
-                }
             }
         }
 
+        // 確保網頁載入後才執行抓取
         window.onload = function() {
             fetchData();
         };
