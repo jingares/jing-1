@@ -1,43 +1,105 @@
-<div class="bg-white p-4 rounded-xl shadow-sm mb-6 text-sm">
-    <form action="https://docs.google.com/forms/u/1/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" 
-          method="POST" 
-          target="hidden_iframe" 
-          onsubmit="submitted=true;">
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>濟豬&濟淨的兩人生活</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-5">
 
-        <div class="mb-2">
-            <label class="block text-gray-500 mb-1">花費日期</label>
-            <input type="date" name="entry.2029544290" class="w-full border p-2 rounded" required>
-        </div>
+    <div class="max-w-md mx-auto">
+        <h1 class="text-2xl font-bold text-center mb-5">卍o爻錢命定o卍</h1>
 
-        <div class="mb-2">
-            <label class="block text-gray-500 mb-1">金額</label>
-            <input type="number" name="entry.1782400014" placeholder="輸入金額" class="w-full border p-2 rounded" required>
-        </div>
-
-        <div class="mb-2">
-            <label class="block text-gray-500 mb-1">類別</label>
-            <select name="entry.1539739800" class="w-full border p-2 rounded">
-                <option value="日用">日用</option>
-                <option value="設備">設備</option>
-                <option value="飲食">飲食</option>
-                <option value="旅遊">旅遊</option>
-                <option value="社交">社交</option>
-            </select>
-        </div>
-
-        <div class="mb-4">
-            <label class="block text-gray-500 mb-1">付款人</label>
-            <div class="flex justify-around py-2 bg-gray-50 rounded">
-                <label><input type="radio" name="entry.1122156127" value="濟豬" required> 濟豬</label>
-                <label><input type="radio" name="entry.1122156127" value="濟淨"> 濟淨</label>
-                <label><input type="radio" name="entry.1122156127" value="共同錢包"> 共同</label>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-indigo-600 text-white p-4 rounded-2xl shadow-md">
+                <p class="text-xs opacity-80">共同錢包餘額</p>
+                <p id="wallet-balance" class="text-2xl font-bold">計算中...</p>
+                <p class="text-[10px] mt-1">月預算: 15,000</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-indigo-100 text-sm">
+                <p class="text-gray-500">濟豬代墊: <span id="pigtou-paid" class="font-bold text-red-500">$0</span></p>
+                <p class="text-gray-500">濟淨代墊: <span id="piclean-paid" class="font-bold text-red-500">$0</span></p>
             </div>
         </div>
 
-        <button type="submit" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold">
-            卍o爻記錄一筆o卍
-        </button>
-    </form>
-</div>
+        <div class="bg-white p-4 rounded-xl shadow-sm mb-6 text-sm">
+            <form action="https://docs.google.com/forms/u/1/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" 
+                  method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+                
+                <div class="mb-2">
+                    <label class="block text-gray-500 mb-1">花費日期</label>
+                    <input type="date" name="entry.2029544290" class="w-full border p-2 rounded" required>
+                </div>
 
-<iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {alert('紀錄成功！錢錢飛進去試算表囉！');}"></iframe>
+                <div class="mb-2">
+                    <label class="block text-gray-500 mb-1">金額</label>
+                    <input type="number" name="entry.1782400014" placeholder="輸入金額" class="w-full border p-2 rounded" required>
+                </div>
+
+                <div class="mb-2">
+                    <label class="block text-gray-500 mb-1">類別</label>
+                    <select name="entry.1539739800" class="w-full border p-2 rounded">
+                        <option value="日用">日用</option>
+                        <option value="設備">設備</option>
+                        <option value="飲食">飲食</option>
+                        <option value="旅遊">旅遊</option>
+                        <option value="社交">社交</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-500 mb-1">付款人</label>
+                    <div class="flex justify-around py-2 bg-gray-50 rounded">
+                        <label><input type="radio" name="entry.1122156127" value="濟豬" required> 濟豬</label>
+                        <label><input type="radio" name="entry.1122156127" value="濟淨"> 濟淨</label>
+                        <label><input type="radio" name="entry.1122156127" value="共同錢包"> 共同</label>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold">
+                    卍o爻記錄一筆o卍
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) { window.location.reload(); }"></iframe>
+
+    <script>
+        var submitted = false;
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?output=csv';
+
+        async function updateFinance() {
+            try {
+                const response = await fetch(csvUrl);
+                const data = await response.text();
+                const rows = data.split('\n').slice(1); 
+
+                let totalSpent = 0;
+                let pigPaid = 0;
+                let cleanPaid = 0;
+
+                rows.forEach(row => {
+                    const cols = row.split(',');
+                    if (cols.length < 4) return;
+
+                    const amount = parseFloat(cols[2]) || 0; // 金額在第 3 欄
+                    const payer = cols[4] ? cols[4].trim() : ""; // 付款人在第 5 欄
+
+                    totalSpent += amount;
+                    if (payer === "濟豬") pigPaid += amount;
+                    if (payer === "濟淨") cleanPaid += amount;
+                });
+
+                document.getElementById('wallet-balance').innerText = '$' + (15000 - totalSpent);
+                document.getElementById('pigtou-paid').innerText = '$' + pigPaid;
+                document.getElementById('piclean-paid').innerText = '$' + cleanPaid;
+            } catch (e) {
+                console.log("算錢失敗了");
+            }
+        }
+
+        updateFinance();
+    </script>
+</body>
+</html>
