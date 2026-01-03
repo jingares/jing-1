@@ -120,25 +120,33 @@
         btn.innerText = "傳送中...";
         btn.disabled = true;
     }
-
-  async function fetchData() {
+async function fetchData() {
         try {
+            console.log("開始抓取資料...");
             const response = await fetch(csvUrl + '&t=' + new Date().getTime());
             const data = await response.text();
-            const rows = data.split('\n').slice(1);
+            
+            // 檢查有沒有抓到東西
+            if (!data) {
+                console.error("抓到的資料是空的");
+                return;
+            }
 
+            const rows = data.split('\n').slice(1);
             let totalSpent = 0;
             let pigPaid = 0;
             let cleanPaid = 0;
 
             rows.forEach((row, index) => {
+                // 改用最簡單的逗號分割
                 const cols = row.split(',').map(c => c.trim().replace(/"/g, ""));
-                if (cols.length < 3) return;
+                
+                // 只要有金額 (第2格) 就可以跑
+                if (cols.length < 2) return;
 
-                // --- 根據你的 Console 資料重新對準 ---
-                const amount = parseFloat(cols[1]) || 0; // 金額在第 2 格 [1]
-                const payer = cols[3] || "";             // 付款人在第 4 格 [3]
-                const isSettled = cols[5] || "";         // 已出款在第 6 格 [5]
+                const amount = parseFloat(cols[1]) || 0; 
+                const payer = cols[3] || "";             
+                const isSettled = cols[4] ? cols[4] : ""; // 先暫時看第5或第6格
 
                 totalSpent += amount;
 
@@ -148,12 +156,16 @@
                 }
             });
 
-            // 更新畫面上的數字
+            console.log("計算完成:", { totalSpent, pigPaid, cleanPaid });
+
+            // 強制更新畫面
             document.getElementById('wallet-balance').innerText = '$' + (15000 - totalSpent);
             document.getElementById('pig-reimbursement').innerText = '$' + pigPaid;
             document.getElementById('clean-reimbursement').innerText = '$' + cleanPaid;
+
         } catch (e) {
-            console.error("抓取失敗:", e);
+            console.error("fetchData 發生錯誤:", e);
+            document.getElementById('wallet-balance').innerText = "連線失敗";
         }
     }
     fetchData();
