@@ -25,7 +25,6 @@
 
     <script>
         var submitted = false;
-        // 你提供的新網址
         const moneyUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=1296893534&single=true&output=csv';
         const bodyUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=857338261&single=true&output=csv';
 
@@ -40,16 +39,13 @@
 
         async function fetchData() {
             try {
-                // 金錢讀取
-                const mResp = await fetch(`${moneyUrl}&t=${Date.now()}`);
-                const mData = await mResp.text();
-                processMoney(mData);
-
-                // 體魄讀取
-                const bResp = await fetch(`${bodyUrl}&t=${Date.now()}`);
-                const bData = await bResp.text();
-                processBody(bData);
-            } catch (e) { console.error("資料讀取失敗:", e); }
+                const [mResp, bResp] = await Promise.all([
+                    fetch(`${moneyUrl}&t=${Date.now()}`),
+                    fetch(`${bodyUrl}&t=${Date.now()}`)
+                ]);
+                processMoney(await mResp.text());
+                processBody(await bResp.text());
+            } catch (e) { console.error("讀取失敗:", e); }
         }
 
         function processMoney(csv) {
@@ -61,10 +57,8 @@
                 const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
                 if (c.length < 2) return;
                 const amt = parseFloat(c[1]) || 0;
-                
-                if (c[2] === "收入") {
-                    income += amt;
-                } else {
+                if (c[2] === "收入") { income += amt; } 
+                else {
                     totalExp += amt;
                     catData[c[2]] = (catData[c[2]] || 0) + amt;
                     if (c[5] !== "是") {
@@ -74,7 +68,6 @@
                 }
             });
 
-            // 渲染最近 5 筆
             [...rows].reverse().slice(0, 5).forEach(row => {
                 const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
                 recentHtml += `<div class="flex justify-between items-center py-3 border-b border-slate-50 last:border-0">
@@ -158,7 +151,7 @@
     <main class="max-w-md mx-auto">
         <section id="money" class="tab-content active space-y-6">
             <div class="glass-card p-8 bg-slate-900 text-white border-0 text-center">
-                <p class="text-[10px] text-slate-400 uppercase tracking-widest mb-1">共同預算餘額</p>
+                <p class="text-[10px] text-slate-400 tracking-widest mb-1">共同預算餘額</p>
                 <div class="flex items-baseline justify-center gap-1">
                     <span class="text-2xl text-slate-500">$</span>
                     <span id="wallet-balance" class="text-6xl font-black tracking-tighter">...</span>
@@ -179,7 +172,7 @@
             <div class="glass-card p-6 h-64"><canvas id="expenseChart"></canvas></div>
 
             <div class="glass-card p-6">
-                <h3 class="text-xs font-bold text-slate-400 mb-4 uppercase">最近 5 筆冒險</h3>
+                <h3 class="text-xs font-bold text-slate-400 mb-4 uppercase italic">📜 最近 5 筆冒險</h3>
                 <div id="recent-list" class="space-y-1 text-sm">讀取中...</div>
             </div>
 
@@ -222,7 +215,7 @@
 
             <div class="glass-card p-8">
                 <h3 class="text-sm font-black text-slate-700 mb-6 italic">📝 登錄進化數值</h3>
-                <form action="https://docs.google.com/forms/d/e/1FAIpQLSf50eKsh9-4vO6l_9r0Yx0uK8K7M6u6M6u6M6u6M6u6M6u6M6/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+                <form action="https://docs.google.com/forms/d/e/1FAIpQLSf6he1iDoiMPdEYIM6lRDe2iAa86lYigpL6oejqCAKqC7nPSw/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
                     <div class="space-y-4">
                         <div class="grid grid-cols-3 gap-2">
                             <input type="radio" name="entry.1397835824" value="濟豬" id="b1" class="payer-option" required>
@@ -231,11 +224,19 @@
                             <label for="b2" class="payer-label">🧴 濟淨</label>
                             <input type="date" name="entry.2120037805" class="bg-slate-100 p-2 rounded-xl font-bold text-[10px] outline-none" required>
                         </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="radio" name="entry.148108422" value="早上" id="t-am" class="payer-option" required>
+                            <label for="t-am" class="payer-label">☀️ 早上</label>
+                            <input type="radio" name="entry.148108422" value="晚上" id="t-pm" class="payer-option">
+                            <label for="t-pm" class="payer-label">🌙 晚上</label>
+                        </div>
+
                         <div class="grid grid-cols-2 gap-4">
                             <input type="number" step="0.1" name="entry.1350125792" placeholder="體重(kg)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none" required>
                             <input type="number" step="0.1" name="entry.1555543886" placeholder="體脂(%)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none">
                         </div>
-                        <button type="submit" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-xs tracking-widest uppercase">
+                        <button type="submit" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-xs tracking-widest uppercase shadow-lg active:scale-95 transition-all">
                             卍o爻 啟動進化紀錄 爻o卍
                         </button>
                     </div>
