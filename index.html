@@ -40,7 +40,6 @@
                 if (!response.ok) throw new Error('Network response was not ok');
                 const data = await response.text();
                 
-                // 確保有資料才進行拆分
                 if (!data || data.trim() === "") {
                     updateUI(15000, 0, 0, 0, {}, "");
                     return;
@@ -76,7 +75,7 @@
                     }
                 });
 
-                // 更新最近流水帳 HTML
+                // 取最後 6 筆顯示
                 [...rows].reverse().slice(0, 6).forEach(row => {
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/"/g, ""));
                     if (cols.length < 2 || cols[2] === "收入") return;
@@ -159,8 +158,8 @@
     <header class="max-w-md mx-auto pt-8 pb-6">
         <div class="flex justify-between items-end mb-4">
             <div>
-                <h1 class="text-2xl font-black tracking-tight text-slate-800">濟豬&濟淨的兩人生活</h1>
-                <p class="text-xs font-bold text-slate-400 mt-1 italic">卍o爻錢命定o卍</p>
+                <h1 class="text-2xl font-black tracking-tight text-slate-800">金錢觀測站</h1>
+                <p class="text-xs font-bold text-slate-400 mt-1 italic italic">Finance Control Room</p>
             </div>
             <div class="text-[24px]">🧧</div>
         </div>
@@ -180,7 +179,7 @@
                 </div>
                 <div class="flex items-baseline gap-1">
                     <span class="text-2xl font-black text-slate-500">$</span>
-                    <span id="wallet-balance" class="text-6xl font-black tracking-tighter">15,000</span>
+                    <span id="wallet-balance" class="text-6xl font-black tracking-tighter">...</span>
                 </div>
                 <p class="text-[10px] mt-4 text-slate-500 leading-relaxed">
                     * 計算公式：15,000 + 中獎收入 - 所有的支出(含代墊)。<br>
@@ -203,7 +202,10 @@
 
             <div class="glass-card p-8">
                 <h3 class="text-sm font-black text-slate-700 mb-4 tracking-widest">📜 近期流水帳與結清狀態</h3>
-                <div id="recent-list" class="space-y-1">載入中...</div>
+                <div id="recent-list" class="space-y-1">讀取中...</div>
+                <div class="mt-4 pt-4 border-t border-slate-100 text-[10px] text-slate-400">
+                    💡 若已從錢包撥款給代墊人，請在試算表 F 欄打上「是」
+                </div>
             </div>
 
             <div class="glass-card p-8">
@@ -219,8 +221,9 @@
                                 <option value="社交">🥂 社交</option><option value="收入">🧧 中獎/收入</option>
                             </select>
                         </div>
-                        <input type="number" name="entry.1782400014" placeholder="金額" class="w-full bg-slate-100 border-0 p-4 rounded-xl font-black text-xl outline-none" required>
+                        <input type="number" name="entry.1782400014" placeholder="輸入金額" class="w-full bg-slate-100 border-0 p-4 rounded-xl font-black text-xl outline-none" required>
                         <div>
+                            <label class="text-[10px] font-black text-slate-400 mb-2 block tracking-widest">誰付的錢？ / PAYER</label>
                             <div class="grid grid-cols-3 gap-2">
                                 <input type="radio" name="entry.1122156127" value="濟豬" id="p1" class="payer-option" required>
                                 <label for="p1" class="payer-label">濟豬墊</label>
