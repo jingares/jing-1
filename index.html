@@ -3,61 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>濟豬&濟淨的觀測站</title>
+    <title>濟豬&濟淨的雙核心觀測站</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #1e293b; }
-        
-        /* 精緻像素陰影 */
-        .glass-card {
-            background: #ffffff;
-            border: 2px solid #e2e8f0;
-            box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.05);
-            border-radius: 1.5rem;
-            transition: all 0.2s ease;
-        }
-
-        /* 像素星星閃爍動畫 */
-        @keyframes starBlink {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.3; transform: scale(0.8); }
-        }
-        .pixel-star {
-            display: inline-block;
-            animation: starBlink 1.5s infinite;
-            color: #fbbf24;
-        }
-
-        /* 改進的選取器 UX */
+        .glass-card { background: #ffffff; border: 2px solid #e2e8f0; box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.05); border-radius: 1.5rem; transition: all 0.2s ease; }
+        .pixel-star { display: inline-block; animation: starBlink 1.5s infinite; color: #fbbf24; }
+        @keyframes starBlink { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.8); } }
         .payer-option { display: none; }
-        .payer-label {
-            display: flex; align-items: center; justify-content: center;
-            padding: 12px 8px; border-radius: 12px; font-weight: 700; font-size: 13px;
-            background: #f1f5f9; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
-        }
-        .payer-option:checked + .payer-label {
-            background: #1e293b; color: white; border-color: #1e293b; transform: translateY(-2px);
-        }
-
+        .payer-label { display: flex; align-items: center; justify-content: center; padding: 12px 8px; border-radius: 12px; font-weight: 700; font-size: 13px; background: #f1f5f9; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
+        .payer-option:checked + .payer-label { background: #1e293b; color: white; transform: translateY(-2px); }
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
         @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        /* 標籤配色 */
         .tag-pig { color: #f97316; background: #fff7ed; border-radius: 6px; padding: 2px 8px; }
         .tag-clean { color: #0ea5e9; background: #f0f9ff; border-radius: 6px; padding: 2px 8px; }
     </style>
 
     <script>
         var submitted = false;
-        // 兩個資料來源
-        const moneyCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=1296893534&output=csv';
-        const bodyCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=857338261&output=csv';
-        
-        let expenseChart, bodyChart;
+        // 你提供的新網址
+        const moneyUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=1296893534&single=true&output=csv';
+        const bodyUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=857338261&single=true&output=csv';
+
+        let moneyChart, bodyChart;
 
         window.handleIframeLoad = function() {
             if (submitted) {
@@ -68,53 +40,58 @@
 
         async function fetchData() {
             try {
-                // 同時抓取金錢與體魄資料
-                const [moneyRes, bodyRes] = await Promise.all([
-                    fetch(`${moneyCsv}&t=${Date.now()}`),
-                    fetch(`${bodyCsv}&t=${Date.now()}`)
-                ]);
+                // 金錢讀取
+                const mResp = await fetch(`${moneyUrl}&t=${Date.now()}`);
+                const mData = await mResp.text();
+                processMoney(mData);
 
-                processMoney(await moneyRes.text());
-                processBody(await bodyRes.text());
-
-            } catch (e) { console.error(e); }
+                // 體魄讀取
+                const bResp = await fetch(`${bodyUrl}&t=${Date.now()}`);
+                const bData = await bResp.text();
+                processBody(bData);
+            } catch (e) { console.error("資料讀取失敗:", e); }
         }
 
-        // --- 金錢資料處理 ---
-        function processMoney(data) {
-            const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
-            let totalSpent = 0, pigPaid = 0, cleanPaid = 0, categoryData = {}, recentHtml = "";
+        function processMoney(csv) {
+            const rows = csv.split('\n').filter(r => r.trim() !== "").slice(1);
+            let income = 15000, totalExp = 0, pigOwed = 0, cleanOwed = 0;
+            let catData = {}, recentHtml = "";
 
             rows.forEach(r => {
                 const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
+                if (c.length < 2) return;
                 const amt = parseFloat(c[1]) || 0;
-                totalSpent += amt;
-                if (c[5] !== "是") {
-                    if (c[3] === "濟豬") pigPaid += amt;
-                    if (c[3] === "濟淨") cleanPaid += amt;
+                
+                if (c[2] === "收入") {
+                    income += amt;
+                } else {
+                    totalExp += amt;
+                    catData[c[2]] = (catData[c[2]] || 0) + amt;
+                    if (c[5] !== "是") {
+                        if (c[3] === "濟豬") pigOwed += amt;
+                        if (c[3] === "濟淨") cleanOwed += amt;
+                    }
                 }
-                categoryData[c[2]] = (categoryData[c[2]] || 0) + amt;
             });
 
+            // 渲染最近 5 筆
             [...rows].reverse().slice(0, 5).forEach(row => {
-                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/"/g, ""));
-                const amt = parseFloat(cols[1]) || 0;
-                recentHtml += `<div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-0">
-                    <div><div class="font-bold text-slate-700 text-sm">${cols[2]}</div><div class="text-[11px] text-slate-400">${cols[4] || ''}</div></div>
-                    <div class="text-right"><div class="font-black text-slate-800">$${amt.toLocaleString()}</div>
-                    <span class="text-[10px] font-bold ${cols[3]==='濟豬'?'tag-pig':'tag-clean'}">${cols[3]}</span></div></div>`;
+                const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
+                recentHtml += `<div class="flex justify-between items-center py-3 border-b border-slate-50 last:border-0">
+                    <div><div class="font-bold text-slate-700 text-sm">${c[2]}</div><div class="text-[10px] text-slate-400">${c[0]}</div></div>
+                    <div class="text-right"><div class="font-black text-slate-800">$${parseFloat(c[1]).toLocaleString()}</div>
+                    <span class="text-[9px] font-bold ${c[3]==='濟豬'?'tag-pig':'tag-clean'}">${c[3]}</span></div></div>`;
             });
 
-            document.getElementById('wallet-balance').innerText = (15000 - totalSpent).toLocaleString();
-            document.getElementById('pig-reimbursement').innerText = '$' + pigPaid.toLocaleString();
-            document.getElementById('clean-reimbursement').innerText = '$' + cleanPaid.toLocaleString();
-            document.getElementById('recent-list').innerHTML = recentHtml || "尚未有傳說紀錄";
-            renderMoneyChart(categoryData, totalSpent);
+            document.getElementById('wallet-balance').innerText = (income - totalExp).toLocaleString();
+            document.getElementById('pig-reimbursement').innerText = '$' + pigOwed.toLocaleString();
+            document.getElementById('clean-reimbursement').innerText = '$' + cleanOwed.toLocaleString();
+            document.getElementById('recent-list').innerHTML = recentHtml || "尚無資料";
+            renderMoneyChart(catData, totalExp);
         }
 
-        // --- 體魄資料處理 ---
-        function processBody(data) {
-            const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
+        function processBody(csv) {
+            const rows = csv.split('\n').filter(r => r.trim() !== "").slice(1);
             let bodyData = rows.map(r => {
                 const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
                 return { date: c[0], name: c[1], weight: parseFloat(c[2]), fat: parseFloat(c[3]) || null };
@@ -123,28 +100,22 @@
             if (bodyData.length > 0) {
                 const latest = bodyData[bodyData.length - 1];
                 document.getElementById('latest-weight').innerText = latest.weight.toFixed(1);
-                
-                const fatData = bodyData.filter(d => d.fat !== null);
-                if (fatData.length > 0) {
-                    const lastFat = fatData[fatData.length - 1];
-                    document.getElementById('latest-fat').innerText = lastFat.fat.toFixed(1);
-                    const diff = Math.floor((new Date() - new Date(lastFat.date)) / 86400000);
-                    if (diff >= 7) document.getElementById('fat-alert').classList.remove('hidden');
-                }
+                const lastFat = bodyData.filter(d => d.fat).slice(-1)[0];
+                if (lastFat) document.getElementById('latest-fat').innerText = lastFat.fat.toFixed(1);
                 renderBodyChart(bodyData);
             }
         }
 
-        function renderMoneyChart(catData, grandTotal) {
+        function renderMoneyChart(catData, total) {
             const ctx = document.getElementById('expenseChart');
-            if (expenseChart) expenseChart.destroy();
-            expenseChart = new Chart(ctx, {
+            if (moneyChart) moneyChart.destroy();
+            moneyChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(catData).map(k => `${k} (${((catData[k]/grandTotal)*100).toFixed(0)}%)`),
+                    labels: Object.keys(catData),
                     datasets: [{ data: Object.values(catData), backgroundColor: ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6'], borderWidth: 0 }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { weight: '700' } } } } }
+                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 11, weight: '700' } } } } }
             });
         }
 
@@ -160,10 +131,7 @@
                         { label: '體脂(%)', data: data.map(d => d.fat), borderColor: '#3b82f6', borderDash: [5,5], tension: 0.4, yAxisID: 'y1', spanGaps: true }
                     ]
                 },
-                options: { 
-                    responsive: true, maintainAspectRatio: false,
-                    scales: { y: { position: 'left', title: {display:true, text:'Weight'} }, y1: { position: 'right', grid: { display: false }, title: {display:true, text:'Fat%'} } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { position: 'left' }, y1: { position: 'right', grid: { display: false } } } }
             });
         }
 
@@ -179,121 +147,95 @@
 </head>
 <body class="pb-12 px-4">
 
-    <header class="max-w-md mx-auto pt-8 pb-6">
-        <div class="flex justify-between items-end mb-4">
-            <div>
-                <h1 class="text-2xl font-black tracking-tight text-slate-800">濟豬 & 濟淨的觀測站 <span class="pixel-star">★</span></h1>
-                <p class="text-xs font-bold text-slate-400 mt-1 italic">一起開啟冒險吧</p>
-            </div>
-            <div class="text-[24px]">🐷🐣</div>
-        </div>
-        
-        <nav class="flex bg-slate-200/50 p-1 rounded-2xl gap-1">
-            <button onclick="openTab('money')" id="btn-money" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all text-slate-900 bg-white shadow-sm">金錢</button>
-            <button onclick="openTab('mission')" id="btn-mission" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all text-slate-500">任務</button>
-            <button onclick="openTab('body')" id="btn-body" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all text-slate-500">體魄</button>
+    <header class="max-w-md mx-auto pt-8 pb-6 text-center">
+        <h1 class="text-2xl font-black text-slate-800">濟豬 & 濟淨觀測站 <span class="pixel-star">★</span></h1>
+        <nav class="flex bg-slate-200/50 p-1 rounded-2xl mt-6 gap-1">
+            <button onclick="openTab('money')" id="btn-money" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl bg-white shadow-sm text-slate-900">💰 金錢</button>
+            <button onclick="openTab('body')" id="btn-body" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl text-slate-500">💪 體魄</button>
         </nav>
     </header>
 
-    <main class="max-w-md mx-auto space-y-6">
+    <main class="max-w-md mx-auto">
         <section id="money" class="tab-content active space-y-6">
-            <div class="glass-card p-8 bg-gradient-to-br from-white to-slate-50">
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <h2 class="text-sm font-black text-slate-400 uppercase tracking-widest">共同錢包餘額</h2>
+            <div class="glass-card p-8 bg-slate-900 text-white border-0 text-center">
+                <p class="text-[10px] text-slate-400 uppercase tracking-widest mb-1">共同預算餘額</p>
+                <div class="flex items-baseline justify-center gap-1">
+                    <span class="text-2xl text-slate-500">$</span>
+                    <span id="wallet-balance" class="text-6xl font-black tracking-tighter">...</span>
                 </div>
-                <div class="flex items-baseline gap-1">
-                    <span class="text-2xl font-black text-slate-400">$</span>
-                    <span id="wallet-balance" class="text-6xl font-black tracking-tighter text-slate-800">...</span>
-                </div>
-            </div>
-
-            <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-6">📊 支出構成比例</h3>
-                <div class="h-64"><canvas id="expenseChart"></canvas></div>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div class="glass-card p-5 border-t-4 border-t-orange-400">
-                    <p class="text-[11px] font-bold text-slate-400 mb-1">應撥給 / 濟豬</p>
-                    <p id="pig-reimbursement" class="text-xl font-black text-slate-800">$0</p>
+                    <p class="text-[10px] font-bold text-slate-400">應撥 / 濟豬</p>
+                    <p id="pig-reimbursement" class="text-xl font-black">$0</p>
                 </div>
                 <div class="glass-card p-5 border-t-4 border-t-sky-400">
-                    <p class="text-[11px] font-bold text-slate-400 mb-1">應撥給 / 濟淨</p>
-                    <p id="clean-reimbursement" class="text-xl font-black text-slate-800">$0</p>
+                    <p class="text-[10px] font-bold text-slate-400">應撥 / 濟淨</p>
+                    <p id="clean-reimbursement" class="text-xl font-black">$0</p>
                 </div>
             </div>
 
-            <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-4">📜 最近 5 筆冒險紀錄</h3>
-                <div id="recent-list" class="space-y-1">讀取中...</div>
+            <div class="glass-card p-6 h-64"><canvas id="expenseChart"></canvas></div>
+
+            <div class="glass-card p-6">
+                <h3 class="text-xs font-bold text-slate-400 mb-4 uppercase">最近 5 筆冒險</h3>
+                <div id="recent-list" class="space-y-1 text-sm">讀取中...</div>
             </div>
 
             <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-6 italic">✍️ 新增生活開銷</h3>
+                <h3 class="text-sm font-black text-slate-700 mb-6 italic">✍️ 紀錄新花費</h3>
                 <form action="https://docs.google.com/forms/u/1/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
-                    <div class="space-y-6">
+                    <div class="space-y-4">
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="date" name="entry.2029544290" class="bg-slate-100/50 p-3 rounded-xl font-bold text-sm outline-none" required>
-                            <select name="entry.1539739800" class="bg-slate-100/50 p-3 rounded-xl font-bold text-sm outline-none">
-                                <option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option><option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option>
+                            <input type="date" name="entry.2029544290" class="bg-slate-100 p-3 rounded-xl font-bold text-sm outline-none" required>
+                            <select name="entry.1539739800" class="bg-slate-100 p-3 rounded-xl font-bold text-sm outline-none">
+                                <option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option><option value="設備">💻 設備</option><option value="收入">🧧 收入</option>
                             </select>
                         </div>
-                        <input type="number" name="entry.1782400014" placeholder="金額" class="w-full bg-slate-100/50 p-4 rounded-xl font-black text-xl outline-none" required>
+                        <input type="number" name="entry.1782400014" placeholder="金額" class="w-full bg-slate-100 p-4 rounded-xl font-black text-xl outline-none" required>
                         <div class="grid grid-cols-3 gap-2">
-                            <input type="radio" name="entry.1122156127" value="濟豬" id="p1" class="payer-option" required>
-                            <label for="p1" class="payer-label">濟豬</label>
-                            <input type="radio" name="entry.1122156127" value="濟淨" id="p2" class="payer-option">
-                            <label for="p2" class="payer-label">濟淨</label>
-                            <input type="radio" name="entry.1122156127" value="共同錢包" id="p3" class="payer-option">
-                            <label for="p3" class="payer-label">共同</label>
+                            <input type="radio" name="entry.1122156127" value="濟豬" id="m1" class="payer-option" required>
+                            <label for="m1" class="payer-label">濟豬</label>
+                            <input type="radio" name="entry.1122156127" value="濟淨" id="m2" class="payer-option">
+                            <label for="m2" class="payer-label">濟淨</label>
+                            <input type="radio" name="entry.1122156127" value="共同錢包" id="m3" class="payer-option">
+                            <label for="m3" class="payer-label">共同</label>
                         </div>
-                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg text-sm tracking-widest uppercase">
-                            卍o爻 啟動傳送 爻o卍
-                        </button>
+                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-xs tracking-widest">卍o爻 啟動傳送 爻o卍</button>
                     </div>
                 </form>
             </div>
         </section>
 
-        <section id="mission" class="tab-content py-20 text-center font-bold text-slate-300">
-            <span class="text-4xl">🌫️</span><br>迷霧壟罩，暫時無法進入
-        </section>
-
         <section id="body" class="tab-content space-y-6">
-            <div class="glass-card p-8 bg-slate-900 text-white border-0">
-                <div class="flex justify-between items-start mb-2">
-                    <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest">目前戰鬥參數</h2>
-                    <span id="fat-alert" class="hidden bg-red-600 text-[10px] px-2 py-1 rounded animate-pulse">⚡ 測體脂時間到</span>
-                </div>
-                <div class="flex items-baseline gap-1">
+            <div class="glass-card p-8 bg-slate-900 text-white border-0 text-center">
+                <p class="text-[10px] text-slate-400 tracking-widest mb-1 uppercase">戰鬥進化狀態</p>
+                <div class="flex items-baseline justify-center gap-1">
                     <span id="latest-weight" class="text-6xl font-black tracking-tighter">--.-</span>
-                    <span class="text-xl font-bold text-slate-500 ml-1">kg</span>
+                    <span class="text-xl font-bold text-slate-500">kg</span>
                 </div>
                 <div class="mt-4 text-sm font-bold text-slate-400">最新體脂：<span id="latest-fat" class="text-white">--.-</span>%</div>
             </div>
 
-            <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-4">📈 卍心癢癢的肌乂肉乂線乂條卍</h3>
-                <div class="h-64"><canvas id="bodyChart"></canvas></div>
-            </div>
+            <div class="glass-card p-6 h-64"><canvas id="bodyChart"></canvas></div>
 
             <div class="glass-card p-8">
                 <h3 class="text-sm font-black text-slate-700 mb-6 italic">📝 登錄進化數值</h3>
-                <form action="https://docs.google.com/forms/d/e/1FAIpQLSdO-o_lB6u3m8Hh6e4m7-pU0u6fK4V_Y8u_L6p_R4p-yP8w/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
-                    <div class="space-y-6">
+                <form action="https://docs.google.com/forms/d/e/1FAIpQLSf50eKsh9-4vO6l_9r0Yx0uK8K7M6u6M6u6M6u6M6u6M6u6M6/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+                    <div class="space-y-4">
                         <div class="grid grid-cols-3 gap-2">
                             <input type="radio" name="entry.1397835824" value="濟豬" id="b1" class="payer-option" required>
                             <label for="b1" class="payer-label">🐷 濟豬</label>
                             <input type="radio" name="entry.1397835824" value="濟淨" id="b2" class="payer-option">
                             <label for="b2" class="payer-label">🧴 濟淨</label>
-                            <input type="date" name="entry.2120037805" class="bg-slate-100/50 px-2 rounded-xl font-bold text-[10px] outline-none" required>
+                            <input type="date" name="entry.2120037805" class="bg-slate-100 p-2 rounded-xl font-bold text-[10px] outline-none" required>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="number" step="0.1" name="entry.1350125792" placeholder="體重(kg)" class="bg-slate-100/50 p-4 rounded-xl font-black text-lg outline-none" required>
-                            <input type="number" step="0.1" name="entry.1555543886" placeholder="體脂(%)" class="bg-slate-100/50 p-4 rounded-xl font-black text-lg outline-none">
+                            <input type="number" step="0.1" name="entry.1350125792" placeholder="體重(kg)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none" required>
+                            <input type="number" step="0.1" name="entry.1555543886" placeholder="體脂(%)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none">
                         </div>
-                        <button type="submit" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black shadow-lg text-xs tracking-[0.2em] uppercase">
+                        <button type="submit" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-xs tracking-widest uppercase">
                             卍o爻 啟動進化紀錄 爻o卍
                         </button>
                     </div>
@@ -302,6 +244,6 @@
         </section>
     </main>
 
-    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="handleIframeLoad()"></iframe>
+    <iframe name="hidden_iframe" style="display:none;" onload="handleIframeLoad()"></iframe>
 </body>
 </html>
