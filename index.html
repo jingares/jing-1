@@ -25,10 +25,24 @@
 
     <script>
         var submitted = false;
+        // 資料來源 (CSV 連結)
         const moneyUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=1296893534&single=true&output=csv';
         const bodyUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=857338261&single=true&output=csv';
 
         let moneyChart, bodyChart;
+
+        // 1. 修正：新增抓取資料的函式
+        async function fetchData() {
+            try {
+                const [moneyRes, bodyRes] = await Promise.all([fetch(moneyUrl), fetch(bodyUrl)]);
+                const moneyCsv = await moneyRes.text();
+                const bodyCsv = await bodyRes.text();
+                processMoney(moneyCsv);
+                processBody(bodyCsv);
+            } catch (err) {
+                console.error("資料讀取失敗", err);
+            }
+        }
 
         window.handleIframeLoad = function() {
             if (submitted) {
@@ -36,17 +50,6 @@
                 location.reload();
             }
         };
-
-        async function fetchData() {
-            try {
-                const [mResp, bResp] = await Promise.all([
-                    fetch(`${moneyUrl}&t=${Date.now()}`),
-                    fetch(`${bodyUrl}&t=${Date.now()}`)
-                ]);
-                processMoney(await mResp.text());
-                processBody(await bResp.text());
-            } catch (e) { console.error("讀取失敗:", e); }
-        }
 
         function processMoney(csv) {
             const rows = csv.split('\n').filter(r => r.trim() !== "").slice(1);
@@ -87,7 +90,7 @@
             const rows = csv.split('\n').filter(r => r.trim() !== "").slice(1);
             let bodyData = rows.map(r => {
                 const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
-                return { date: c[0], name: c[1], weight: parseFloat(c[2]), fat: parseFloat(c[3]) || null };
+                return { date: c[1], name: c[0], weight: parseFloat(c[3]), fat: parseFloat(c[4]) || null };
             }).filter(d => !isNaN(d.weight));
 
             if (bodyData.length > 0) {
@@ -99,7 +102,6 @@
             }
         }
 
-        // 圓餅圖：內建比例顯示
         function renderMoneyChart(catData, total) {
             const ctx = document.getElementById('expenseChart');
             if (moneyChart) moneyChart.destroy();
@@ -119,39 +121,7 @@
                     maintainAspectRatio: false, 
                     cutout: '70%', 
                     plugins: { 
-                        legend: { 
-                            position: 'bottom', 
-                            labels: { 
-                                font: { size: 11, weight: '700' },
-                                generateLabels: (chart) => {
-                                    const data = chart.data;
-                                    return data.labels.map((label, i) => {
-                                        const value = data.datasets[0].data[i];
-                                        const percentage = ((value / total) * 100).toFixed(1) + '%';
-                                        return { text: `${label} (${percentage})`, fillStyle: data.datasets[0].backgroundColor[i], index: i };
-                                    });
-                                }
-                            } 
-                        }
-                    },
-                    animation: {
-                        onComplete: function() {
-                            const ctx = this.ctx;
-                            ctx.font = "bold 12px 'Noto Sans TC'";
-                            ctx.textAlign = 'center';
-                            ctx.fillStyle = '#ffffff'; 
-                            this.data.datasets.forEach((dataset, i) => {
-                                const meta = this.getDatasetMeta(i);
-                                meta.data.forEach((element, index) => {
-                                    const dataValue = dataset.data[index];
-                                    if ((dataValue / total) > 0.05) {
-                                        const percentage = ((dataValue / total) * 100).toFixed(1) + '%';
-                                        const position = element.tooltipPosition();
-                                        ctx.fillText(percentage, position.x, position.y);
-                                    }
-                                });
-                            });
-                        }
+                        legend: { position: 'bottom', labels: { font: { size: 11, weight: '700' } } }
                     }
                 }
             });
@@ -163,10 +133,10 @@
             bodyChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: data.map(d => d.date.split('-').slice(1).join('/')),
+                    labels: data.slice(-10).map(d => d.date.split('-').slice(1).join('/')),
                     datasets: [
-                        { label: '體重(kg)', data: data.map(d => d.weight), borderColor: '#ef4444', tension: 0.4, yAxisID: 'y' },
-                        { label: '體脂(%)', data: data.map(d => d.fat), borderColor: '#3b82f6', borderDash: [5,5], tension: 0.4, yAxisID: 'y1', spanGaps: true }
+                        { label: '體重(kg)', data: data.slice(-10).map(d => d.weight), borderColor: '#ef4444', tension: 0.4, yAxisID: 'y' },
+                        { label: '體脂(%)', data: data.slice(-10).map(d => d.fat), borderColor: '#3b82f6', borderDash: [5,5], tension: 0.4, yAxisID: 'y1', spanGaps: true }
                     ]
                 },
                 options: { responsive: true, maintainAspectRatio: false, scales: { y: { position: 'left' }, y1: { position: 'right', grid: { display: false } } } }
@@ -178,18 +148,6 @@
             document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('text-slate-900', 'bg-white', 'shadow-sm'));
             document.getElementById(t).classList.add('active');
             document.getElementById('btn-' + t).classList.add('text-slate-900', 'bg-white', 'shadow-sm');
-        }
-
-        // 處理體魄提交防錯
-        function handleBodySubmit(form) {
-            const fatInput = document.getElementById('fat-input');
-            if (fatInput.value.trim() === "") {
-                fatInput.removeAttribute('name');
-            } else {
-                fatInput.name = "entry.1555543886";
-            }
-            submitted = true;
-            return true;
         }
 
         window.onload = fetchData;
@@ -272,28 +230,25 @@
 
             <div class="glass-card p-8">
                 <h3 class="text-sm font-black text-slate-700 mb-6 italic">📝 登錄進化數值</h3>
-                <form id="body-form" action="https://docs.google.com/forms/d/e/1FAIpQLSf6he1iDoiMPdEYIM6lRDe2iAa86lYigpL6oejqCAKqC7nPSw/formResponse" method="POST" target="hidden_iframe" onsubmit="return handleBodySubmit(this);">
+                <form action="https://docs.google.com/forms/d/e/1FAIpQLSf6he1iDoiMPdEYIM6lRDe2iAa86lYigpL6oejqCAKqC7nPSw/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
                     <div class="space-y-4">
                         <div class="grid grid-cols-3 gap-2">
-                            <input type="radio" name="entry.1397835824" value="濟豬" id="b1" class="payer-option" required>
+                            <input type="radio" name="entry.1767857666" value="濟豬" id="b1" class="payer-option" required>
                             <label for="b1" class="payer-label">🐷 濟豬</label>
-                            <input type="radio" name="entry.1397835824" value="濟淨" id="b2" class="payer-option">
+                            <input type="radio" name="entry.1767857666" value="濟淨" id="b2" class="payer-option">
                             <label for="b2" class="payer-label">🧴 濟淨</label>
-                            <input type="date" name="entry.2120037805" class="bg-slate-100 p-2 rounded-xl font-bold text-[10px] outline-none" required>
+                            <input type="date" name="entry.1350125792" class="bg-slate-100 p-2 rounded-xl font-bold text-[10px] outline-none" required>
                         </div>
-
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="radio" name="entry.148108422" value="早" id="t-am" class="payer-option" required>
+                            <input type="radio" name="entry.2120037805" value="早" id="t-am" class="payer-option" required>
                             <label for="t-am" class="payer-label">☀️ 早</label>
-                            <input type="radio" name="entry.148108422" value="晚" id="t-pm" class="payer-option">
+                            <input type="radio" name="entry.2120037805" value="晚" id="t-pm" class="payer-option">
                             <label for="t-pm" class="payer-label">🌙 晚</label>
                         </div>
-
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="number" step="0.1" name="entry.1350125792" placeholder="體重(kg)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none" required>
-                            <input type="number" step="0.1" id="fat-input" placeholder="體脂(%)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none">
+                            <input type="number" step="0.1" name="entry.50169000" placeholder="體重(kg)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none" required>
+                            <input type="number" step="0.1" name="entry.148108422" placeholder="體脂(%)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none">
                         </div>
-
                         <button type="submit" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-xs tracking-widest uppercase shadow-lg active:scale-95 transition-all">
                             卍o爻 啟動進化紀錄 爻o卍
                         </button>
