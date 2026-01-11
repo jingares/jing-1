@@ -99,6 +99,7 @@
             }
         }
 
+        // 圓餅圖：內建比例顯示
         function renderMoneyChart(catData, total) {
             const ctx = document.getElementById('expenseChart');
             if (moneyChart) moneyChart.destroy();
@@ -106,9 +107,53 @@
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(catData),
-                    datasets: [{ data: Object.values(catData), backgroundColor: ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6'], borderWidth: 0 }]
+                    datasets: [{ 
+                        data: Object.values(catData), 
+                        backgroundColor: ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6'], 
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 11, weight: '700' } } } } }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    cutout: '70%', 
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom', 
+                            labels: { 
+                                font: { size: 11, weight: '700' },
+                                generateLabels: (chart) => {
+                                    const data = chart.data;
+                                    return data.labels.map((label, i) => {
+                                        const value = data.datasets[0].data[i];
+                                        const percentage = ((value / total) * 100).toFixed(1) + '%';
+                                        return { text: `${label} (${percentage})`, fillStyle: data.datasets[0].backgroundColor[i], index: i };
+                                    });
+                                }
+                            } 
+                        }
+                    },
+                    animation: {
+                        onComplete: function() {
+                            const ctx = this.ctx;
+                            ctx.font = "bold 12px 'Noto Sans TC'";
+                            ctx.textAlign = 'center';
+                            ctx.fillStyle = '#ffffff'; 
+                            this.data.datasets.forEach((dataset, i) => {
+                                const meta = this.getDatasetMeta(i);
+                                meta.data.forEach((element, index) => {
+                                    const dataValue = dataset.data[index];
+                                    if ((dataValue / total) > 0.05) {
+                                        const percentage = ((dataValue / total) * 100).toFixed(1) + '%';
+                                        const position = element.tooltipPosition();
+                                        ctx.fillText(percentage, position.x, position.y);
+                                    }
+                                });
+                            });
+                        }
+                    }
+                }
             });
         }
 
@@ -133,6 +178,18 @@
             document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('text-slate-900', 'bg-white', 'shadow-sm'));
             document.getElementById(t).classList.add('active');
             document.getElementById('btn-' + t).classList.add('text-slate-900', 'bg-white', 'shadow-sm');
+        }
+
+        // 處理體魄提交防錯
+        function handleBodySubmit(form) {
+            const fatInput = document.getElementById('fat-input');
+            if (fatInput.value.trim() === "") {
+                fatInput.removeAttribute('name');
+            } else {
+                fatInput.name = "entry.1555543886";
+            }
+            submitted = true;
+            return true;
         }
 
         window.onload = fetchData;
@@ -216,48 +273,32 @@
             <div class="glass-card p-8">
                 <h3 class="text-sm font-black text-slate-700 mb-6 italic">📝 登錄進化數值</h3>
                 <form id="body-form" action="https://docs.google.com/forms/d/e/1FAIpQLSf6he1iDoiMPdEYIM6lRDe2iAa86lYigpL6oejqCAKqC7nPSw/formResponse" method="POST" target="hidden_iframe" onsubmit="return handleBodySubmit(this);">
-    <div class="space-y-4">
-        <div class="grid grid-cols-3 gap-2">
-            <input type="radio" name="entry.1397835824" value="濟豬" id="b1" class="payer-option" required>
-            <label for="b1" class="payer-label">🐷 濟豬</label>
-            <input type="radio" name="entry.1397835824" value="濟淨" id="b2" class="payer-option">
-            <label for="b2" class="payer-label">🧴 濟淨</label>
-            <input type="date" name="entry.2120037805" class="bg-slate-100 p-2 rounded-xl font-bold text-[10px] outline-none" required>
-        </div>
-        
-        <div class="grid grid-cols-2 gap-4">
-            <input type="radio" name="entry.148108422" value="早上" id="t-am" class="payer-option" required>
-            <label for="t-am" class="payer-label">☀️ 早上</label>
-            <input type="radio" name="entry.148108422" value="晚上" id="t-pm" class="payer-option">
-            <label for="t-pm" class="payer-label">🌙 晚上</label>
-        </div>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="radio" name="entry.1397835824" value="濟豬" id="b1" class="payer-option" required>
+                            <label for="b1" class="payer-label">🐷 濟豬</label>
+                            <input type="radio" name="entry.1397835824" value="濟淨" id="b2" class="payer-option">
+                            <label for="b2" class="payer-label">🧴 濟淨</label>
+                            <input type="date" name="entry.2120037805" class="bg-slate-100 p-2 rounded-xl font-bold text-[10px] outline-none" required>
+                        </div>
 
-        <div class="grid grid-cols-2 gap-4">
-            <input type="number" step="0.1" name="entry.1350125792" placeholder="體重(kg)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none" required>
-            <input type="number" step="0.1" id="fat-input" placeholder="體脂(%)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none">
-        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="radio" name="entry.148108422" value="早" id="t-am" class="payer-option" required>
+                            <label for="t-am" class="payer-label">☀️ 早</label>
+                            <input type="radio" name="entry.148108422" value="晚" id="t-pm" class="payer-option">
+                            <label for="t-pm" class="payer-label">🌙 晚</label>
+                        </div>
 
-        <button type="submit" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-xs tracking-widest uppercase shadow-lg">
-            卍o爻 啟動進化紀錄 爻o卍
-        </button>
-    </div>
-</form>
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="number" step="0.1" name="entry.1350125792" placeholder="體重(kg)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none" required>
+                            <input type="number" step="0.1" id="fat-input" placeholder="體脂(%)" class="bg-slate-100 p-4 rounded-xl font-black text-lg outline-none">
+                        </div>
 
-<script>
-function handleBodySubmit(form) {
-    const fatInput = document.getElementById('fat-input');
-    
-    // 如果有填體脂，才把 name 加回去傳送
-    if (fatInput.value.trim() !== "") {
-        fatInput.name = "entry.1555543886";
-    } else {
-        fatInput.removeAttribute('name');
-    }
-    
-    submitted = true;
-    return true;
-}
-</script>
+                        <button type="submit" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black text-xs tracking-widest uppercase shadow-lg active:scale-95 transition-all">
+                            卍o爻 啟動進化紀錄 爻o卍
+                        </button>
+                    </div>
+                </form>
             </div>
         </section>
     </main>
