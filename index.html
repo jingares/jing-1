@@ -53,8 +53,11 @@
 
     <script>
         var submitted = false;
-        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?output=csv';
-        let expenseChart;
+        // 兩個資料來源
+        const moneyCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=1296893534&output=csv';
+        const bodyCsv = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=857338261&output=csv';
+        
+        let expenseChart, bodyChart;
 
         window.handleIframeLoad = function() {
             if (submitted) {
@@ -65,85 +68,102 @@
 
         async function fetchData() {
             try {
-                const response = await fetch(`${csvUrl}&t=${Date.now()}`);
-                const data = await response.text();
-                const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
-                
-                let totalSpent = 0, pigPaid = 0, cleanPaid = 0;
-                let categoryData = {};
-                let recentHtml = "";
+                // 同時抓取金錢與體魄資料
+                const [moneyRes, bodyRes] = await Promise.all([
+                    fetch(`${moneyCsv}&t=${Date.now()}`),
+                    fetch(`${bodyCsv}&t=${Date.now()}`)
+                ]);
 
-                rows.forEach(r => {
-                    const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
-                    const amt = parseFloat(c[1]) || 0;
-                    totalSpent += amt;
-                    if (c[5] !== "是") {
-                        if (c[3] === "濟豬") pigPaid += amt;
-                        if (c[3] === "濟淨") cleanPaid += amt;
-                    }
-                    categoryData[c[2]] = (categoryData[c[2]] || 0) + amt;
-                });
+                processMoney(await moneyRes.text());
+                processBody(await bodyRes.text());
 
-                [...rows].reverse().slice(0, 5).forEach(row => {
-                    const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/"/g, ""));
-                    const amt = parseFloat(cols[1]) || 0;
-                    const isPig = cols[3] === "濟豬";
-                    recentHtml += `
-                        <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-0">
-                            <div>
-                                <div class="font-bold text-slate-700 text-sm">${cols[2]}</div>
-                                <div class="text-[11px] text-slate-400">${cols[4]}</div>
-                            </div>
-                            <div class="text-right">
-                                <div class="font-black text-slate-800">$${amt.toLocaleString()}</div>
-                                <span class="text-[10px] font-bold ${isPig?'tag-pig':'tag-clean'}">${cols[3]}</span>
-                            </div>
-                        </div>`;
-                });
-
-                document.getElementById('wallet-balance').innerText = (15000 - totalSpent).toLocaleString();
-                document.getElementById('pig-reimbursement').innerText = '$' + pigPaid.toLocaleString();
-                document.getElementById('clean-reimbursement').innerText = '$' + cleanPaid.toLocaleString();
-                document.getElementById('recent-list').innerHTML = recentHtml || "尚未有傳說紀錄";
-
-                renderChart(categoryData, totalSpent);
             } catch (e) { console.error(e); }
         }
 
-        function renderChart(catData, grandTotal) {
+        // --- 金錢資料處理 ---
+        function processMoney(data) {
+            const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
+            let totalSpent = 0, pigPaid = 0, cleanPaid = 0, categoryData = {}, recentHtml = "";
+
+            rows.forEach(r => {
+                const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
+                const amt = parseFloat(c[1]) || 0;
+                totalSpent += amt;
+                if (c[5] !== "是") {
+                    if (c[3] === "濟豬") pigPaid += amt;
+                    if (c[3] === "濟淨") cleanPaid += amt;
+                }
+                categoryData[c[2]] = (categoryData[c[2]] || 0) + amt;
+            });
+
+            [...rows].reverse().slice(0, 5).forEach(row => {
+                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/"/g, ""));
+                const amt = parseFloat(cols[1]) || 0;
+                recentHtml += `<div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-0">
+                    <div><div class="font-bold text-slate-700 text-sm">${cols[2]}</div><div class="text-[11px] text-slate-400">${cols[4] || ''}</div></div>
+                    <div class="text-right"><div class="font-black text-slate-800">$${amt.toLocaleString()}</div>
+                    <span class="text-[10px] font-bold ${cols[3]==='濟豬'?'tag-pig':'tag-clean'}">${cols[3]}</span></div></div>`;
+            });
+
+            document.getElementById('wallet-balance').innerText = (15000 - totalSpent).toLocaleString();
+            document.getElementById('pig-reimbursement').innerText = '$' + pigPaid.toLocaleString();
+            document.getElementById('clean-reimbursement').innerText = '$' + cleanPaid.toLocaleString();
+            document.getElementById('recent-list').innerHTML = recentHtml || "尚未有傳說紀錄";
+            renderMoneyChart(categoryData, totalSpent);
+        }
+
+        // --- 體魄資料處理 ---
+        function processBody(data) {
+            const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
+            let bodyData = rows.map(r => {
+                const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
+                return { date: c[0], name: c[1], weight: parseFloat(c[2]), fat: parseFloat(c[3]) || null };
+            }).filter(d => !isNaN(d.weight));
+
+            if (bodyData.length > 0) {
+                const latest = bodyData[bodyData.length - 1];
+                document.getElementById('latest-weight').innerText = latest.weight.toFixed(1);
+                
+                const fatData = bodyData.filter(d => d.fat !== null);
+                if (fatData.length > 0) {
+                    const lastFat = fatData[fatData.length - 1];
+                    document.getElementById('latest-fat').innerText = lastFat.fat.toFixed(1);
+                    const diff = Math.floor((new Date() - new Date(lastFat.date)) / 86400000);
+                    if (diff >= 7) document.getElementById('fat-alert').classList.remove('hidden');
+                }
+                renderBodyChart(bodyData);
+            }
+        }
+
+        function renderMoneyChart(catData, grandTotal) {
             const ctx = document.getElementById('expenseChart');
             if (expenseChart) expenseChart.destroy();
-            const colors = ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6', '#cbd5e1'];
-            
             expenseChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(catData).map(k => `${k} (${((catData[k]/grandTotal)*100).toFixed(0)}%)`),
-                    datasets: [{
-                        data: Object.values(catData),
-                        backgroundColor: colors,
-                        hoverOffset: 20,
-                        borderWidth: 0
-                    }]
+                    datasets: [{ data: Object.values(catData), backgroundColor: ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6'], borderWidth: 0 }]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '75%',
-                    plugins: { legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, font: { size: 12, weight: '700' } } } }
+                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { weight: '700' } } } } }
+            });
+        }
+
+        function renderBodyChart(data) {
+            const ctx = document.getElementById('bodyChart');
+            if (bodyChart) bodyChart.destroy();
+            bodyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.date.split('-').slice(1).join('/')),
+                    datasets: [
+                        { label: '體重(kg)', data: data.map(d => d.weight), borderColor: '#ef4444', tension: 0.4, yAxisID: 'y' },
+                        { label: '體脂(%)', data: data.map(d => d.fat), borderColor: '#3b82f6', borderDash: [5,5], tension: 0.4, yAxisID: 'y1', spanGaps: true }
+                    ]
                 },
-                plugins: [{
-                    beforeDraw: (chart) => {
-                        const { width, height, ctx } = chart;
-                        ctx.restore();
-                        ctx.font = "700 14px Noto Sans TC";
-                        ctx.fillStyle = "#94a3b8";
-                        ctx.textAlign = "center";
-                        ctx.fillText("總支出", width / 2, height / 2 - 10);
-                        ctx.font = "900 22px Noto Sans TC";
-                        ctx.fillStyle = "#1e293b";
-                        ctx.fillText(`$${grandTotal.toLocaleString()}`, width / 2, height / 2 + 15);
-                        ctx.save();
-                    }
-                }]
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { position: 'left', title: {display:true, text:'Weight'} }, y1: { position: 'right', grid: { display: false }, title: {display:true, text:'Fat%'} } }
+                }
             });
         }
 
@@ -177,7 +197,6 @@
 
     <main class="max-w-md mx-auto space-y-6">
         <section id="money" class="tab-content active space-y-6">
-            
             <div class="glass-card p-8 bg-gradient-to-br from-white to-slate-50">
                 <div class="flex items-center gap-2 mb-2">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -190,9 +209,7 @@
             </div>
 
             <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-6 flex items-center gap-2">
-                    📊 支出構成比例
-                </h3>
+                <h3 class="text-sm font-black text-slate-700 mb-6">📊 支出構成比例</h3>
                 <div class="h-64"><canvas id="expenseChart"></canvas></div>
             </div>
 
@@ -213,44 +230,25 @@
             </div>
 
             <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-6">✍️ 新增生活開銷</h3>
-                <form action="https://docs.google.com/forms/u/1/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" 
-                      method="POST" target="hidden_iframe" onsubmit="submitted=true;">
-                    
+                <h3 class="text-sm font-black text-slate-700 mb-6 italic">✍️ 新增生活開銷</h3>
+                <form action="https://docs.google.com/forms/u/1/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
                     <div class="space-y-6">
                         <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 mb-1 block">日期</label>
-                                <input type="date" name="entry.2029544290" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm focus:ring-2 focus:ring-slate-300 outline-none" required>
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 mb-1 block">類別</label>
-                                <select name="entry.1539739800" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
-                                    <option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option>
-                                    <option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option>
-                                    <option value="社交">🥂 社交</option>
-                                </select>
-                            </div>
+                            <input type="date" name="entry.2029544290" class="bg-slate-100/50 p-3 rounded-xl font-bold text-sm outline-none" required>
+                            <select name="entry.1539739800" class="bg-slate-100/50 p-3 rounded-xl font-bold text-sm outline-none">
+                                <option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option><option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option>
+                            </select>
                         </div>
-
-                        <div>
-                            <label class="text-[10px] font-black text-slate-400 mb-1 block">金額</label>
-                            <input type="number" name="entry.1782400014" placeholder="0" class="w-full bg-slate-100/50 border-0 p-4 rounded-xl font-black text-xl outline-none" required>
+                        <input type="number" name="entry.1782400014" placeholder="金額" class="w-full bg-slate-100/50 p-4 rounded-xl font-black text-xl outline-none" required>
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="radio" name="entry.1122156127" value="濟豬" id="p1" class="payer-option" required>
+                            <label for="p1" class="payer-label">濟豬</label>
+                            <input type="radio" name="entry.1122156127" value="濟淨" id="p2" class="payer-option">
+                            <label for="p2" class="payer-label">濟淨</label>
+                            <input type="radio" name="entry.1122156127" value="共同錢包" id="p3" class="payer-option">
+                            <label for="p3" class="payer-label">共同</label>
                         </div>
-
-                        <div>
-                            <label class="text-[10px] font-black text-slate-400 mb-2 block">付款人</label>
-                            <div class="grid grid-cols-3 gap-2">
-                                <input type="radio" name="entry.1122156127" value="濟豬" id="p1" class="payer-option" required>
-                                <label for="p1" class="payer-label">濟豬</label>
-                                <input type="radio" name="entry.1122156127" value="濟淨" id="p2" class="payer-option">
-                                <label for="p2" class="payer-label">濟淨</label>
-                                <input type="radio" name="entry.1122156127" value="共同錢包" id="p3" class="payer-option">
-                                <label for="p3" class="payer-label">共同</label>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-sm tracking-widest">
+                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg text-sm tracking-widest uppercase">
                             卍o爻 啟動傳送 爻o卍
                         </button>
                     </div>
@@ -262,13 +260,48 @@
             <span class="text-4xl">🌫️</span><br>迷霧壟罩，暫時無法進入
         </section>
 
-        <section id="body" class="tab-content py-20 text-center font-bold text-slate-300">
-            <span class="text-4xl">⚔️</span><br>體魄數據由大魔法師維護中
+        <section id="body" class="tab-content space-y-6">
+            <div class="glass-card p-8 bg-slate-900 text-white border-0">
+                <div class="flex justify-between items-start mb-2">
+                    <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest">目前戰鬥參數</h2>
+                    <span id="fat-alert" class="hidden bg-red-600 text-[10px] px-2 py-1 rounded animate-pulse">⚡ 測體脂時間到</span>
+                </div>
+                <div class="flex items-baseline gap-1">
+                    <span id="latest-weight" class="text-6xl font-black tracking-tighter">--.-</span>
+                    <span class="text-xl font-bold text-slate-500 ml-1">kg</span>
+                </div>
+                <div class="mt-4 text-sm font-bold text-slate-400">最新體脂：<span id="latest-fat" class="text-white">--.-</span>%</div>
+            </div>
+
+            <div class="glass-card p-8">
+                <h3 class="text-sm font-black text-slate-700 mb-4">📈 卍心癢癢的肌乂肉乂線乂條卍</h3>
+                <div class="h-64"><canvas id="bodyChart"></canvas></div>
+            </div>
+
+            <div class="glass-card p-8">
+                <h3 class="text-sm font-black text-slate-700 mb-6 italic">📝 登錄進化數值</h3>
+                <form action="https://docs.google.com/forms/d/e/1FAIpQLSdO-o_lB6u3m8Hh6e4m7-pU0u6fK4V_Y8u_L6p_R4p-yP8w/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="radio" name="entry.1397835824" value="濟豬" id="b1" class="payer-option" required>
+                            <label for="b1" class="payer-label">🐷 濟豬</label>
+                            <input type="radio" name="entry.1397835824" value="濟淨" id="b2" class="payer-option">
+                            <label for="b2" class="payer-label">🧴 濟淨</label>
+                            <input type="date" name="entry.2120037805" class="bg-slate-100/50 px-2 rounded-xl font-bold text-[10px] outline-none" required>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="number" step="0.1" name="entry.1350125792" placeholder="體重(kg)" class="bg-slate-100/50 p-4 rounded-xl font-black text-lg outline-none" required>
+                            <input type="number" step="0.1" name="entry.1555543886" placeholder="體脂(%)" class="bg-slate-100/50 p-4 rounded-xl font-black text-lg outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black shadow-lg text-xs tracking-[0.2em] uppercase">
+                            卍o爻 啟動進化紀錄 爻o卍
+                        </button>
+                    </div>
+                </form>
+            </div>
         </section>
     </main>
 
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="handleIframeLoad()"></iframe>
 </body>
 </html>
-
-
