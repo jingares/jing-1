@@ -239,42 +239,48 @@ const bodyCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPG
             </div>
             <div class="glass-card p-8">
                 <h3 class="text-sm font-black text-slate-700 mb-6">✍️ 新增生活開銷</h3>
-              <form action="https://docs.google.com/forms/d/e/1FAIpQLSclx6w0XJ6R5Wn8_U1D6i8CjY9g4uI8K6L-m3A8O_fN3S8T6L/formResponse" 
-      method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+              <form action="https://docs.google.com/forms/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
 
-                    <div class="space-y-6">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 mb-1 block">日期</label>
-                                <input type="date" name="entry.2029544290" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm focus:ring-2 focus:ring-slate-300 outline-none" required>
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 mb-1 block">類別</label>
-                                <select name="entry.1539739800" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
-                                    <option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option>
-                                    <option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option>
-                                    <option value="社交">🥂 社交</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-black text-slate-400 mb-1 block">金額</label>
-                            <input type="number" name="entry.1782400014" placeholder="0" class="w-full bg-slate-100/50 border-0 p-4 rounded-xl font-black text-xl outline-none" required>
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-black text-slate-400 mb-2 block">付款人</label>
-                            <div class="grid grid-cols-3 gap-2">
-                                <input type="radio" name="entry.1122156127" value="濟豬" id="p1" class="payer-option" required>
-                                <label for="p1" class="payer-label">濟豬</label>
-                                <input type="radio" name="entry.1122156127" value="濟淨" id="p2" class="payer-option">
-                                <label for="p2" class="payer-label">濟淨</label>
-                                <input type="radio" name="entry.1122156127" value="共同錢包" id="p3" class="payer-option">
-                                <label for="p3" class="payer-label">共同</label>
-                            </div>
-                        </div>
-                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-sm tracking-widest">卍o爻 啟動傳送 爻o卍</button>
-                    </div>
-                </form>
+    <div class="space-y-6">
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="text-[10px] font-black text-slate-400 mb-1 block">日期</label>
+                <div class="flex gap-1">
+                    <input type="number" name="entry.2029544290_year" placeholder="年" class="w-1/3 bg-slate-100/50 p-2 rounded-lg text-xs font-bold outline-none" required>
+                    <input type="number" name="entry.2029544290_month" placeholder="月" class="w-1/3 bg-slate-100/50 p-2 rounded-lg text-xs font-bold outline-none" required>
+                    <input type="number" name="entry.2029544290_day" placeholder="日" class="w-1/3 bg-slate-100/50 p-2 rounded-lg text-xs font-bold outline-none" required>
+                </div>
+            </div>
+            <div>
+                <label class="text-[10px] font-black text-slate-400 mb-1 block">類別</label>
+                <select name="entry.1539739800" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
+                    <option value="飲食">🍕 飲食</option>
+                    <option value="日用">🧺 日用</option>
+                    <option value="設備">💻 設備</option>
+                    <option value="旅遊">✈️ 旅遊</option>
+                    <option value="社交">🥂 社交</option>
+                </select>
+            </div>
+        </div>
+        <div>
+            <label class="text-[10px] font-black text-slate-400 mb-1 block">金額</label>
+            <input type="number" name="entry.1782400014" placeholder="0" class="w-full bg-slate-100/50 border-0 p-4 rounded-xl font-black text-xl outline-none" required>
+        </div>
+        <div>
+            <label class="text-[10px] font-black text-slate-400 mb-2 block">付款人</label>
+            <div class="grid grid-cols-3 gap-2">
+                <input type="radio" name="entry.1122156127" value="濟豬" id="p1" class="payer-option" required>
+                <label for="p1" class="payer-label">濟豬</label>
+                <input type="radio" name="entry.1122156127" value="濟淨" id="p2" class="payer-option">
+                <label for="p2" class="payer-label">濟淨</label>
+                <input type="radio" name="entry.1122156127" value="共同錢包" id="p3" class="payer-option">
+                <label for="p3" class="payer-label">共同</label>
+            </div>
+        </div>
+        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-sm tracking-widest">卍o爻 啟動傳送 爻o卍</button>
+    </div>
+</form>
+
             </div>
         </section>
 
@@ -289,17 +295,17 @@ const bodyCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPG
             </div>
             <div class="glass-card p-8">
                 <h3 class="text-sm font-black text-slate-700 mb-6">✍️ 紀錄今日體魄</h3>
-    <form action="https://docs.google.com/forms/d/e/1FAIpQLScyO1v5v9V4h-7XvU9V_S8L7T6R5b_k-P5hS_fN6R5bkpShs/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+  <form action="https://docs.google.com/forms/d/e/1FAIpQLSf6he1iDoiMPdEYIM6lRDe2iAa86lYigpL6oejqCAKqC7nPSw/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
 
     <div class="space-y-5">
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <label class="text-[10px] font-black text-slate-400 mb-1 block">日期</label>
-                <input type="date" id="body-date" name="entry.50169000" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none" required>
+                <input type="date" id="body-date" name="entry.1084185584" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none" required>
             </div>
             <div>
                 <label class="text-[10px] font-black text-slate-400 mb-1 block">時段</label>
-                <select name="entry.148108422" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
+                <select name="entry.1827803948" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
                     <option value="早">🌅 晨間量測</option>
                     <option value="晚">🌃 睡前量測</option>
                 </select>
@@ -308,26 +314,23 @@ const bodyCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPG
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <label class="text-[10px] font-black text-slate-400 mb-1 block">測量者</label>
-                <select name="entry.1767857666" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
+                <select name="entry.1906297204" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
                     <option value="濟豬">🐷 濟豬</option>
                     <option value="濟淨">🐣 濟淨</option>
                 </select>
             </div>
             <div>
                 <label class="text-[10px] font-black text-slate-400 mb-1 block">體重 (kg)</label>
-                <input type="number" step="0.1" name="entry.1350125792" placeholder="0.0" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold outline-none" required>
+                <input type="number" step="0.1" name="entry.2076780180" placeholder="0.0" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold outline-none" required>
             </div>
         </div>
         <div>
             <label class="text-[10px] font-black text-slate-400 mb-1 block">體脂 (%)</label>
-            <input type="number" step="0.1" name="entry.2120037805" placeholder="0.0" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold outline-none">
+            <input type="number" step="0.1" name="entry.1197675866" placeholder="0.0" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold outline-none">
         </div>
         <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-sm tracking-widest">卍心癢癢的肌乂肉乂線乂條卍</button>
     </div>
 </form>
-
-
-
             </div>
         </section>
     </main>
