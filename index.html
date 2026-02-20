@@ -36,7 +36,6 @@
         };
 
         window.onload = function() {
-            // 自動設定今天的日期
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('money-date').value = today;
             document.getElementById('body-date').value = today;
@@ -47,10 +46,9 @@
             openTab(lastTab);
         };
 
-        // 金錢資料處理與圓餅圖 (已過濾收入)
         async function fetchData() {
             try {
-                const response = await fetch(`${csvUrl}&t=${Date.now()}`);
+                const response = await fetch(`${csvUrl}&t=${Date.now()}`, { cache: "no-store" });
                 const data = await response.text();
                 const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
                 let totalSpent = 0, pigPaid = 0, cleanPaid = 0, categoryData = {}, recentHtml = "";
@@ -88,10 +86,9 @@
             } catch (e) { console.error(e); }
         }
 
-        // 體魄資料處理與排序圖表
         async function fetchBodyData() {
             try {
-                const response = await fetch(`${bodyCsvUrl}&t=${Date.now()}`);
+                const response = await fetch(`${bodyCsvUrl}&t=${Date.now()}`, { cache: "no-store" });
                 const data = await response.text();
                 const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
                 let bodyMap = {}, recentBodyHtml = "";
@@ -115,23 +112,28 @@
                 });
                 document.getElementById('body-recent-list').innerHTML = recentBodyHtml;
 
-                const sortedDates = Object.keys(bodyMap).sort();
+                // 重要：確保 X 軸日期由舊到新排序 (愈右邊愈新)
+                const sortedDates = Object.keys(bodyMap).sort((a, b) => new Date(a) - new Date(b));
                 renderBodyChart(sortedDates, bodyMap);
             } catch (e) { console.error(e); }
         }
 
-        // 金錢表單送出前的自動轉換 (將日期選擇器拆回表單需要的年、月、日)
         function prepareMoneySubmit() {
-            const dateVal = document.getElementById('money-date').value; // YYYY-MM-DD
+            const dateVal = document.getElementById('money-date').value;
             if (!dateVal) return;
             const parts = dateVal.split('-');
             document.getElementById('m-year').value = parts[0];
             document.getElementById('m-month').value = parts[1];
             document.getElementById('m-day').value = parts[2];
+            
+            // 如果類別選到收入，自動勾選收入 checkbox
+            const cat = document.getElementById('money-cat').value;
+            if (cat === "收入") {
+                document.getElementById('m-income-check').checked = true;
+            }
             submitted = true;
         }
 
-        // 圖表渲染
         function renderMoneyChart(categoryData) {
             const ctx = document.getElementById('expenseChart').getContext('2d');
             new Chart(ctx, {
@@ -152,19 +154,28 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: '濟豬', data: getPoints('濟豬'), borderColor: '#f97316', tension: 0.3, spanGaps: true },
-                        { label: '濟淨', data: getPoints('濟淨'), borderColor: '#0ea5e9', tension: 0.3, spanGaps: true }
+                        { label: '濟豬', data: getPoints('濟豬'), borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', tension: 0.3, spanGaps: true },
+                        { label: '濟淨', data: getPoints('濟淨'), borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.1)', tension: 0.3, spanGaps: true }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { ticks: { callback: (value) => value + 'kg' } }
+                    }
+                }
             });
         }
 
         function openTab(t) {
             document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('text-slate-900', 'bg-white', 'shadow-sm'));
-            document.getElementById(t).classList.add('active');
-            document.getElementById('btn-' + t).classList.add('text-slate-900', 'bg-white', 'shadow-sm');
+            const target = document.getElementById(t);
+            if(target) target.classList.add('active');
+            const btn = document.getElementById('btn-' + t);
+            if(btn) btn.classList.add('text-slate-900', 'bg-white', 'shadow-sm');
         }
     </script>
 </head>
@@ -189,16 +200,17 @@
                 <div class="glass-card p-4 border-t-4 border-orange-400"><p class="text-[10px] font-bold text-slate-400">應撥給 濟豬</p><p id="pig-reimbursement" class="text-lg font-black">$0</p></div>
                 <div class="glass-card p-4 border-t-4 border-sky-400"><p class="text-[10px] font-bold text-slate-400">應撥給 濟淨</p><p id="clean-reimbursement" class="text-lg font-black">$0</p></div>
             </div>
-            <div class="glass-card p-6"><h3 class="text-sm font-black mb-4">📜 最近 5 筆紀錄</h3><div id="recent-list" class="space-y-1"></div></div>
+            <div class="glass-card p-6"><h3 class="text-sm font-black mb-4">📜 最近 5 筆收支</h3><div id="recent-list" class="space-y-1"></div></div>
             <div class="glass-card p-8">
                 <form action="https://docs.google.com/forms/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" method="POST" target="hidden_iframe" onsubmit="prepareMoneySubmit()">
                     <input type="hidden" name="entry.2029544290_year" id="m-year">
                     <input type="hidden" name="entry.2029544290_month" id="m-month">
                     <input type="hidden" name="entry.2029544290_day" id="m-day">
+                    <input type="checkbox" name="entry.669818815" value="是" id="m-income-check" class="hidden">
                     <div class="space-y-4">
                         <div class="grid grid-cols-2 gap-3">
                             <input type="date" id="money-date" class="bg-slate-100 p-3 rounded-xl font-bold text-sm outline-none">
-                            <select name="entry.1539739800" class="bg-slate-100 p-3 rounded-xl font-bold text-sm"><option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option><option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option><option value="收入">💰 收入項目</option></select>
+                            <select name="entry.1539739800" id="money-cat" class="bg-slate-100 p-3 rounded-xl font-bold text-sm"><option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option><option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option><option value="收入">💰 收入項目</option></select>
                         </div>
                         <input type="number" name="entry.1782400014" placeholder="輸入金額" class="w-full bg-slate-100 p-4 rounded-xl font-black text-xl outline-none" required>
                         <div class="grid grid-cols-3 gap-2">
@@ -212,10 +224,11 @@
             </div>
         </section>
 
-        <section id="mission" class="tab-content py-20 text-center font-bold text-slate-300">施工中...</section>
-
         <section id="body" class="tab-content space-y-6">
-            <div class="glass-card p-6 h-72"><canvas id="bodyChart"></canvas></div>
+            <div class="glass-card p-6 h-72">
+                <h3 class="text-xs font-black text-slate-400 mb-2 uppercase">進化折線 (愈右愈新)</h3>
+                <canvas id="bodyChart"></canvas>
+            </div>
             <div class="glass-card p-6"><h3 class="text-sm font-black mb-4">📜 最近 5 筆進化紀錄</h3><div id="body-recent-list" class="space-y-1"></div></div>
             <div class="glass-card p-8">
                 <form action="https://docs.google.com/forms/d/e/1FAIpQLSf6he1iDoiMPdEYIM6lRDe2iAa86lYigpL6oejqCAKqC7nPSw/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
@@ -234,6 +247,8 @@
                 </form>
             </div>
         </section>
+
+        <section id="mission" class="tab-content py-20 text-center font-bold text-slate-300">施工中...</section>
     </main>
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="handleIframeLoad()"></iframe>
 </body>
