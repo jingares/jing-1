@@ -10,27 +10,10 @@
     
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; color: #1e293b; }
-        .glass-card {
-            background: #ffffff;
-            border: 2px solid #e2e8f0;
-            box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.05);
-            border-radius: 1.5rem;
-            transition: all 0.2s ease;
-        }
-        @keyframes starBlink {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.3; transform: scale(0.8); }
-        }
-        .pixel-star { display: inline-block; animation: starBlink 1.5s infinite; color: #fbbf24; }
+        .glass-card { background: #ffffff; border: 2px solid #e2e8f0; box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.05); border-radius: 1.5rem; }
         .payer-option { display: none; }
-        .payer-label {
-            display: flex; align-items: center; justify-content: center;
-            padding: 12px 8px; border-radius: 12px; font-weight: 700; font-size: 13px;
-            background: #f1f5f9; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
-        }
-        .payer-option:checked + .payer-label {
-            background: #1e293b; color: white; border-color: #1e293b; transform: translateY(-2px);
-        }
+        .payer-label { display: flex; align-items: center; justify-content: center; padding: 12px 8px; border-radius: 12px; font-weight: 700; font-size: 13px; background: #f1f5f9; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
+        .payer-option:checked + .payer-label { background: #1e293b; color: white; border-color: #1e293b; transform: translateY(-2px); }
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: slideUp 0.4s ease-out; }
         @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -40,146 +23,140 @@
 
     <script>
         var submitted = false;
-       // 金錢分頁 (gid=1296893534)
-const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=1296893534&single=true&output=csv';
-
-// 體魄分頁 (gid=857338261)
-const bodyCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=857338261&single=true&output=csv';
-
-        
-        let expenseChart;
-        let bodyChart;
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=1296893534&single=true&output=csv';
+        const bodyCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPGZhYixtC9vJ1GFCyBYRqU856YVEkUXJaTpsnNg48N3AMPsvbuAicL9XEFS00ibi0Ioh9/pub?gid=857338261&single=true&output=csv';
 
         window.handleIframeLoad = function() {
             if (submitted) {
-                alert('✨ 紀錄存檔成功！ ✧*｡٩(ˊᗜˋ*)و✧*｡ ✨');
+                const currentTab = document.querySelector('.tab-content.active').id;
+                localStorage.setItem('activeTab', currentTab);
+                alert('✨ 紀錄存檔成功！ ✨');
                 location.reload();
             }
         };
 
-        // 初始化：同時抓取兩份資料
         window.onload = function() {
+            // 自動設定今天的日期
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('money-date').value = today;
+            document.getElementById('body-date').value = today;
+
             fetchData();
             fetchBodyData();
-            if(document.getElementById('body-date')) {
-                document.getElementById('body-date').valueAsDate = new Date();
-            }
+            const lastTab = localStorage.getItem('activeTab') || 'money';
+            openTab(lastTab);
         };
 
-        // --- 金錢數據處理 ---
+        // 金錢資料處理與圓餅圖 (已過濾收入)
         async function fetchData() {
             try {
                 const response = await fetch(`${csvUrl}&t=${Date.now()}`);
                 const data = await response.text();
                 const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
-                
-                let totalSpent = 0, pigPaid = 0, cleanPaid = 0;
-                let categoryData = {};
-                let recentHtml = "";
+                let totalSpent = 0, pigPaid = 0, cleanPaid = 0, categoryData = {}, recentHtml = "";
 
                 rows.forEach(r => {
                     const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
                     const amt = parseFloat(c[1]) || 0;
-                    totalSpent += amt;
-                    if (c[5] !== "是") {
-                        if (c[3] === "濟豬") pigPaid += amt;
-                        if (c[3] === "濟淨") cleanPaid += amt;
+                    const cat = c[2], payer = c[3];
+                    const isInc = (c[5] && c[5].includes("是")) || cat === "收入";
+
+                    if (!isInc) {
+                        totalSpent += amt;
+                        categoryData[cat] = (categoryData[cat] || 0) + amt;
+                        if (payer === "濟豬") pigPaid += amt;
+                        if (payer === "濟淨") cleanPaid += amt;
                     }
-                    categoryData[c[2]] = (categoryData[c[2]] || 0) + amt;
                 });
 
-                // 最近紀錄處理
                 [...rows].reverse().slice(0, 5).forEach(row => {
                     const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.trim().replace(/"/g, ""));
-                    const amt = parseFloat(cols[1]) || 0;
                     const isPig = cols[3] === "濟豬";
-                    recentHtml += `
-                        <div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-0">
-                            <div>
-                                <div class="font-bold text-slate-700 text-sm">${cols[2]}</div>
-                                <div class="text-[11px] text-slate-400">${cols[4]}</div>
-                            </div>
-                            <div class="text-right">
-                                <div class="font-black text-slate-800">$${amt.toLocaleString()}</div>
-                                <span class="text-[10px] font-bold ${isPig?'tag-pig':'tag-clean'}">${cols[3]}</span>
-                            </div>
-                        </div>`;
+                    const isInc = (cols[5] && cols[5].includes("是")) || cols[2] === "收入";
+                    recentHtml += `<div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-0">
+                        <div><div class="font-bold text-slate-700 text-sm">${cols[2]} ${isInc ? '<span class="text-emerald-500">[收入]</span>':''}</div>
+                        <div class="text-[11px] text-slate-400">${cols[4]}</div></div>
+                        <div class="text-right"><div class="font-black text-slate-800">$${parseFloat(cols[1]).toLocaleString()}</div>
+                        <span class="text-[10px] font-bold ${isPig?'tag-pig':'tag-clean'}">${cols[3]}</span></div></div>`;
                 });
 
                 document.getElementById('wallet-balance').innerText = (15000 - totalSpent).toLocaleString();
                 document.getElementById('pig-reimbursement').innerText = '$' + pigPaid.toLocaleString();
                 document.getElementById('clean-reimbursement').innerText = '$' + cleanPaid.toLocaleString();
-                document.getElementById('recent-list').innerHTML = recentHtml || "尚未有傳說紀錄";
-
-                renderChart(categoryData, totalSpent);
-            } catch (e) { console.error("金錢數據讀取失敗", e); }
+                document.getElementById('recent-list').innerHTML = recentHtml || "尚未有紀錄";
+                renderMoneyChart(categoryData);
+            } catch (e) { console.error(e); }
         }
 
-        // --- 體魄數據處理 ---
+        // 體魄資料處理與排序圖表
         async function fetchBodyData() {
             try {
                 const response = await fetch(`${bodyCsvUrl}&t=${Date.now()}`);
                 const data = await response.text();
                 const rows = data.split('\n').filter(r => r.trim() !== "").slice(1);
-                
-                let pigData = [], cleanData = [];
-                let labelsSet = new Set();
+                let bodyMap = {}, recentBodyHtml = "";
 
                 rows.forEach(r => {
                     const c = r.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
-                    const date = c[1]; 
-                    const user = c[4]; 
-                    const weight = parseFloat(c[2]); 
-                    
-                    if (!isNaN(weight)) {
-                        labelsSet.add(date);
-                        if (user === "濟豬") pigData.push({x: date, y: weight});
-                        if (user === "濟淨") cleanData.push({x: date, y: weight});
-                    }
+                    const date = c[1], user = c[2], weight = parseFloat(c[3]);
+                    if (!date || isNaN(weight)) return;
+                    if (!bodyMap[date]) bodyMap[date] = { "濟豬": [], "濟淨": [] };
+                    bodyMap[date][user].push(weight);
                 });
 
-                const sortedLabels = Array.from(labelsSet).sort();
-                renderBodyChart(sortedLabels, pigData, cleanData);
-            } catch (e) { console.error("體魄數據讀取失敗", e); }
+                [...rows].reverse().slice(0, 5).forEach(c => {
+                    const col = c.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ""));
+                    const isPig = col[2] === "濟豬";
+                    recentBodyHtml += `<div class="flex justify-between items-center py-4 border-b border-slate-50 last:border-0">
+                        <div><div class="font-bold text-slate-700 text-sm">${col[1]} (${col[5]})</div>
+                        <span class="text-[10px] font-bold ${isPig?'tag-pig':'tag-clean'}">${col[2]}</span></div>
+                        <div class="text-right"><div class="font-black text-slate-800">${col[3]} kg</div>
+                        <div class="text-[10px] text-slate-400">體脂 ${col[4]}%</div></div></div>`;
+                });
+                document.getElementById('body-recent-list').innerHTML = recentBodyHtml;
+
+                const sortedDates = Object.keys(bodyMap).sort();
+                renderBodyChart(sortedDates, bodyMap);
+            } catch (e) { console.error(e); }
         }
 
-        // --- 圖表繪製函數 ---
-        function renderChart(catData, grandTotal) {
+        // 金錢表單送出前的自動轉換 (將日期選擇器拆回表單需要的年、月、日)
+        function prepareMoneySubmit() {
+            const dateVal = document.getElementById('money-date').value; // YYYY-MM-DD
+            if (!dateVal) return;
+            const parts = dateVal.split('-');
+            document.getElementById('m-year').value = parts[0];
+            document.getElementById('m-month').value = parts[1];
+            document.getElementById('m-day').value = parts[2];
+            submitted = true;
+        }
+
+        // 圖表渲染
+        function renderMoneyChart(categoryData) {
             const ctx = document.getElementById('expenseChart').getContext('2d');
-            if (expenseChart) expenseChart.destroy();
-            const colors = ['#818cf8', '#f87171', '#fbbf24', '#34d399', '#f472b6', '#cbd5e1'];
-            expenseChart = new Chart(ctx, {
+            new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(catData).map(k => `${k} (${((catData[k]/grandTotal)*100).toFixed(0)}%)`),
-                    datasets: [{
-                        data: Object.values(catData),
-                        backgroundColor: colors,
-                        borderWidth: 0
-                    }]
+                    labels: Object.keys(categoryData),
+                    datasets: [{ data: Object.values(categoryData), backgroundColor: ['#f87171', '#fb923c', '#fbbf24', '#4ade80', '#60a5fa', '#818cf8'] }]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false, cutout: '75%',
-                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { weight: '700' } } } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
             });
         }
 
-        function renderBodyChart(labels, pigData, cleanData) {
+        function renderBodyChart(labels, bodyMap) {
             const ctx = document.getElementById('bodyChart').getContext('2d');
-            if (bodyChart) bodyChart.destroy();
-            bodyChart = new Chart(ctx, {
+            const getPoints = (u) => labels.map(d => bodyMap[d][u].length ? Math.max(...bodyMap[d][u]) : null);
+            new Chart(ctx, {
                 type: 'line',
                 data: {
+                    labels: labels,
                     datasets: [
-                        { label: '濟豬 (kg)', data: pigData, borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3 },
-                        { label: '濟淨 (kg)', data: cleanData, borderColor: '#0ea5e9', backgroundColor: '#0ea5e9', tension: 0.3 }
+                        { label: '濟豬', data: getPoints('濟豬'), borderColor: '#f97316', tension: 0.3, spanGaps: true },
+                        { label: '濟淨', data: getPoints('濟淨'), borderColor: '#0ea5e9', tension: 0.3, spanGaps: true }
                     ]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: false } }
-                }
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
@@ -192,151 +169,72 @@ const bodyCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTp-3jXGhNPG
     </script>
 </head>
 <body class="pb-12 px-4">
-    <header class="max-w-md mx-auto pt-8 pb-6">
-        <div class="flex justify-between items-end mb-4">
-            <div>
-                <h1 class="text-2xl font-black tracking-tight text-slate-800">濟豬 & 濟淨的觀測站 <span class="pixel-star">★</span></h1>
-                <p class="text-xs font-bold text-slate-400 mt-1 italic">一起開啟冒險吧</p>
-            </div>
-            <div class="text-[24px]">🐷🐣</div>
-        </div>
-        <nav class="flex bg-slate-200/50 p-1 rounded-2xl gap-1">
-            <button onclick="openTab('money')" id="btn-money" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all text-slate-900 bg-white shadow-sm">金錢</button>
-            <button onclick="openTab('mission')" id="btn-mission" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all text-slate-500">任務</button>
-            <button onclick="openTab('body')" id="btn-body" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all text-slate-500">體魄</button>
+    <header class="max-w-md mx-auto pt-8 pb-6 text-center">
+        <h1 class="text-2xl font-black tracking-tight text-slate-800">濟豬 & 濟淨的觀測站 🐷🐣</h1>
+        <nav class="flex bg-slate-200/50 p-1 rounded-2xl gap-1 mt-4">
+            <button onclick="openTab('money')" id="btn-money" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all">金錢</button>
+            <button onclick="openTab('mission')" id="btn-mission" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all">任務</button>
+            <button onclick="openTab('body')" id="btn-body" class="tab-btn flex-1 py-2 font-bold text-sm rounded-xl transition-all">體魄</button>
         </nav>
     </header>
 
     <main class="max-w-md mx-auto space-y-6">
         <section id="money" class="tab-content active space-y-6">
-            <div class="glass-card p-8 bg-gradient-to-br from-white to-slate-50">
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <h2 class="text-sm font-black text-slate-400 uppercase tracking-widest">共同錢包餘額</h2>
-                </div>
-                <div class="flex items-baseline gap-1">
-                    <span class="text-2xl font-black text-slate-400">$</span>
-                    <span id="wallet-balance" class="text-6xl font-black tracking-tighter text-slate-800">...</span>
-                </div>
+            <div class="glass-card p-8 text-center bg-white">
+                <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">預算剩餘 (不含收入)</h2>
+                <div class="text-5xl font-black text-slate-800">$ <span id="wallet-balance">...</span></div>
             </div>
-            <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-6 flex items-center gap-2">📊 支出構成比例</h3>
-                <div class="h-64"><canvas id="expenseChart"></canvas></div>
-            </div>
+            <div class="glass-card p-6 h-72"><canvas id="expenseChart"></canvas></div>
             <div class="grid grid-cols-2 gap-4">
-                <div class="glass-card p-5 border-t-4 border-t-orange-400">
-                    <p class="text-[11px] font-bold text-slate-400 mb-1">應撥給 / 濟豬</p>
-                    <p id="pig-reimbursement" class="text-xl font-black text-slate-800">$0</p>
-                </div>
-                <div class="glass-card p-5 border-t-4 border-t-sky-400">
-                    <p class="text-[11px] font-bold text-slate-400 mb-1">應撥給 / 濟淨</p>
-                    <p id="clean-reimbursement" class="text-xl font-black text-slate-800">$0</p>
-                </div>
+                <div class="glass-card p-4 border-t-4 border-orange-400"><p class="text-[10px] font-bold text-slate-400">應撥給 濟豬</p><p id="pig-reimbursement" class="text-lg font-black">$0</p></div>
+                <div class="glass-card p-4 border-t-4 border-sky-400"><p class="text-[10px] font-bold text-slate-400">應撥給 濟淨</p><p id="clean-reimbursement" class="text-lg font-black">$0</p></div>
             </div>
+            <div class="glass-card p-6"><h3 class="text-sm font-black mb-4">📜 最近 5 筆紀錄</h3><div id="recent-list" class="space-y-1"></div></div>
             <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-4">📜 最近 5 筆冒險紀錄</h3>
-                <div id="recent-list" class="space-y-1">讀取中...</div>
-            </div>
-            <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-6">✍️ 新增生活開銷</h3>
-              <form action="https://docs.google.com/forms/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
-
-    <div class="space-y-6">
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="text-[10px] font-black text-slate-400 mb-1 block">日期</label>
-                <div class="flex gap-1">
-                    <input type="number" name="entry.2029544290_year" placeholder="年" class="w-1/3 bg-slate-100/50 p-2 rounded-lg text-xs font-bold outline-none" required>
-                    <input type="number" name="entry.2029544290_month" placeholder="月" class="w-1/3 bg-slate-100/50 p-2 rounded-lg text-xs font-bold outline-none" required>
-                    <input type="number" name="entry.2029544290_day" placeholder="日" class="w-1/3 bg-slate-100/50 p-2 rounded-lg text-xs font-bold outline-none" required>
-                </div>
-            </div>
-            <div>
-                <label class="text-[10px] font-black text-slate-400 mb-1 block">類別</label>
-                <select name="entry.1539739800" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
-                    <option value="飲食">🍕 飲食</option>
-                    <option value="日用">🧺 日用</option>
-                    <option value="設備">💻 設備</option>
-                    <option value="旅遊">✈️ 旅遊</option>
-                    <option value="社交">🥂 社交</option>
-                </select>
-            </div>
-        </div>
-        <div>
-            <label class="text-[10px] font-black text-slate-400 mb-1 block">金額</label>
-            <input type="number" name="entry.1782400014" placeholder="0" class="w-full bg-slate-100/50 border-0 p-4 rounded-xl font-black text-xl outline-none" required>
-        </div>
-        <div>
-            <label class="text-[10px] font-black text-slate-400 mb-2 block">付款人</label>
-            <div class="grid grid-cols-3 gap-2">
-                <input type="radio" name="entry.1122156127" value="濟豬" id="p1" class="payer-option" required>
-                <label for="p1" class="payer-label">濟豬</label>
-                <input type="radio" name="entry.1122156127" value="濟淨" id="p2" class="payer-option">
-                <label for="p2" class="payer-label">濟淨</label>
-                <input type="radio" name="entry.1122156127" value="共同錢包" id="p3" class="payer-option">
-                <label for="p3" class="payer-label">共同</label>
-            </div>
-        </div>
-        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-sm tracking-widest">卍o爻 啟動傳送 爻o卍</button>
-    </div>
-</form>
-
+                <form action="https://docs.google.com/forms/d/e/1FAIpQLSd3pRv9-m4Tkd0duGqCn3YkUb_cTYz2oP3GY5Ht5WwPOVG1KA/formResponse" method="POST" target="hidden_iframe" onsubmit="prepareMoneySubmit()">
+                    <input type="hidden" name="entry.2029544290_year" id="m-year">
+                    <input type="hidden" name="entry.2029544290_month" id="m-month">
+                    <input type="hidden" name="entry.2029544290_day" id="m-day">
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="date" id="money-date" class="bg-slate-100 p-3 rounded-xl font-bold text-sm outline-none">
+                            <select name="entry.1539739800" class="bg-slate-100 p-3 rounded-xl font-bold text-sm"><option value="飲食">🍕 飲食</option><option value="日用">🧺 日用</option><option value="設備">💻 設備</option><option value="旅遊">✈️ 旅遊</option><option value="收入">💰 收入項目</option></select>
+                        </div>
+                        <input type="number" name="entry.1782400014" placeholder="輸入金額" class="w-full bg-slate-100 p-4 rounded-xl font-black text-xl outline-none" required>
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="radio" name="entry.1122156127" value="濟豬" id="mp1" class="payer-option" required><label for="mp1" class="payer-label">濟豬</label>
+                            <input type="radio" name="entry.1122156127" value="濟淨" id="mp2" class="payer-option"><label for="mp2" class="payer-label">濟淨</label>
+                            <input type="radio" name="entry.1122156127" value="共同錢包" id="mp3" class="payer-option"><label for="mp3" class="payer-label">共同</label>
+                        </div>
+                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black">存入紀錄</button>
+                    </div>
+                </form>
             </div>
         </section>
 
-        <section id="mission" class="tab-content py-20 text-center font-bold text-slate-300">
-            <span class="text-4xl">🌫️</span><br>迷霧壟罩，暫時無法進入
-        </section>
+        <section id="mission" class="tab-content py-20 text-center font-bold text-slate-300">施工中...</section>
 
         <section id="body" class="tab-content space-y-6">
-            <div class="glass-card p-6">
-                <h3 class="text-sm font-black text-slate-700 mb-6">⚔️ 戰鬥力進化曲線</h3>
-                <div class="h-64"><canvas id="bodyChart"></canvas></div>
-            </div>
+            <div class="glass-card p-6 h-72"><canvas id="bodyChart"></canvas></div>
+            <div class="glass-card p-6"><h3 class="text-sm font-black mb-4">📜 最近 5 筆進化紀錄</h3><div id="body-recent-list" class="space-y-1"></div></div>
             <div class="glass-card p-8">
-                <h3 class="text-sm font-black text-slate-700 mb-6">✍️ 紀錄今日體魄</h3>
-  <form action="https://docs.google.com/forms/d/e/1FAIpQLSf6he1iDoiMPdEYIM6lRDe2iAa86lYigpL6oejqCAKqC7nPSw/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
-
-    <div class="space-y-5">
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="text-[10px] font-black text-slate-400 mb-1 block">日期</label>
-                <input type="date" id="body-date" name="entry.1084185584" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none" required>
-            </div>
-            <div>
-                <label class="text-[10px] font-black text-slate-400 mb-1 block">時段</label>
-                <select name="entry.1827803948" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
-                    <option value="早">🌅 晨間量測</option>
-                    <option value="晚">🌃 睡前量測</option>
-                </select>
-            </div>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="text-[10px] font-black text-slate-400 mb-1 block">測量者</label>
-                <select name="entry.1906297204" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold text-sm outline-none">
-                    <option value="濟豬">🐷 濟豬</option>
-                    <option value="濟淨">🐣 濟淨</option>
-                </select>
-            </div>
-            <div>
-                <label class="text-[10px] font-black text-slate-400 mb-1 block">體重 (kg)</label>
-                <input type="number" step="0.1" name="entry.2076780180" placeholder="0.0" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold outline-none" required>
-            </div>
-        </div>
-        <div>
-            <label class="text-[10px] font-black text-slate-400 mb-1 block">體脂 (%)</label>
-            <input type="number" step="0.1" name="entry.1197675866" placeholder="0.0" class="w-full bg-slate-100/50 border-0 p-3 rounded-xl font-bold outline-none">
-        </div>
-        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-slate-700 active:scale-95 transition-all text-sm tracking-widest">卍心癢癢的肌乂肉乂線乂條卍</button>
-    </div>
-</form>
+                <form action="https://docs.google.com/forms/d/e/1FAIpQLSf6he1iDoiMPdEYIM6lRDe2iAa86lYigpL6oejqCAKqC7nPSw/formResponse" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="date" id="body-date" name="entry.1084185584" class="bg-slate-100 p-3 rounded-xl font-bold text-sm outline-none" required>
+                            <select name="entry.1827803948" class="bg-slate-100 p-3 rounded-xl font-bold text-sm"><option value="早">🌅 晨間</option><option value="晚">🌃 睡前</option></select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <select name="entry.1906297204" class="bg-slate-100 p-3 rounded-xl font-bold text-sm"><option value="濟豬">🐷 濟豬</option><option value="濟淨">🐣 濟淨</option></select>
+                            <input type="number" step="0.1" name="entry.2076780180" placeholder="體重 (kg)" class="bg-slate-100 p-3 rounded-xl font-bold outline-none" required>
+                        </div>
+                        <input type="number" step="0.1" name="entry.1197675866" placeholder="體脂 (%)" class="w-full bg-slate-100 p-3 rounded-xl font-bold outline-none">
+                        <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-2xl font-black">更新體魄</button>
+                    </div>
+                </form>
             </div>
         </section>
     </main>
-
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="handleIframeLoad()"></iframe>
 </body>
 </html>
-
-
